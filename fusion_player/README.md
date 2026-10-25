@@ -43,7 +43,8 @@ Court walks are scored against the court with `imu_live/scripts/court_eval.py`.
 
 1. Turn on the phone's hotspot and connect the laptop to it.
 2. Click **Live from the phone** (Ctrl+L). The side panel shows the address to type into IMU Stream (port 5555).
-3. In IMU Stream: that address, **Fastest**, **Start**. The panel shows **LINK OK** with the rate.
+3. In IMU Stream: that address, **Fastest**, **Start**. The panel shows **LINK OK** with the rate. The path is sent
+   back to the phone, which draws the same graph under its controls (IMU Stream 1.2 or later).
 4. Strap the phone to the shoe; the walker stands still. Press **R** to calibrate there. The panel shows the shoe's
    motion against the limit; after 2 s still it switches from **CALIBRATING** to **TRACKING**: go.
 
@@ -59,7 +60,8 @@ and the phone keeps its own complete copy.
   as the ESP32 firmware: `python -m ziglang cc -O2 -o filter/replay.exe filter/replay.c filter/fusion.c`
 - `foot.py` (phone walks): loads the recording with `imu_live`'s loader, calibrates on the first still 2 s, runs the
   foot filter (`imunav`, shoe preset) and builds a 20 Hz timeline.
-- `livemode.py` (live): `imu_live`'s receiver, tracker and recording session (`imunav.live`).
+- `livemode.py` (live): `imu_live`'s receiver, tracker, recording session and path sender (`imunav.live`). The
+  sender sends the path back to the phone ten times a second, over the same UDP link.
 
 The phone parts need the `imu_live` folder next to this one.
 

@@ -207,7 +207,8 @@ The walking routine is exactly the same. In addition:
       - If TRACKING still doesn't appear, press **R**, and they stand still for another 5 s.
 5. **While they walk, watch:**
    - **LINK OK** (green) at about 250 Hz (the phone's rate).
-   - The path, which starts at a dot and turns to point up the screen after 3 m.
+   - The path, which starts at a dot and turns to point up the screen after 3 m. The phone draws the same path
+     under its controls (IMU Stream 1.2 or later), so the walker can check it too.
    - Press **M** to timestamp anything worth knowing, such as a trip, a missed pause or a re-mount.
 6. **At the end**, the walker stands still for 5 s and presses Stop. The panel then shows **LINK LOST**, which is normal between walks.
 7. After the last walk, click **Stop live**.

@@ -674,7 +674,8 @@ class Player(QtWidgets.QMainWindow):
         else:
             self.lv_link.setText(f"LINK LOST for {age:.0f} s (the phone keeps its own copy)")
             self.lv_link.setStyleSheet("font-weight:600; font-family:Consolas,monospace; color:#b3263a")
-        self.lv_addr.setText(f"In IMU Stream, enter {self.live_run.ip} (port {self.live_run.port}), choose Fastest, press Start.")
+        self.lv_addr.setText(f"In IMU Stream, enter {self.live_run.ip} (port {self.live_run.port}), choose Fastest, press Start."
+                             + (" The path is sent back to the phone, which draws it too." if age is not None and age < 1.0 else ""))
         self.lv_stats.setText(f"Steps     {s['steps']}\nDistance  {s['distance']:.1f} m\nSpeed     {s['walk_speed']:.2f} m/s")
         code = self.live_run.session.walk[0]
         self.lv_rec.setText(f"Recording to Documents/IMU Live/{s['file']}  ({s['rows']} rows"

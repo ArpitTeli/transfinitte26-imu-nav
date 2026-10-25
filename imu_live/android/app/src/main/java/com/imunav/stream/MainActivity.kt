@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
@@ -21,14 +22,16 @@ import android.widget.RadioGroup
 import android.widget.TextView
 import java.util.Locale
 
-/** One screen: laptop address, sample rate, Start/Stop, live status. */
+/** One screen: laptop address, sample rate, Start/Stop, live status, and the live path the laptop sends back. */
 class MainActivity : Activity() {
 
+    private lateinit var intro: TextView
     private lateinit var host: EditText
     private lateinit var port: EditText
     private lateinit var rates: RadioGroup
     private lateinit var button: Button
     private lateinit var status: TextView
+    private lateinit var pathView: PathView
     private val ui = Handler(Looper.getMainLooper())
 
     // label -> sensor sampling period in microseconds (0 = SENSOR_DELAY_FASTEST)
@@ -38,6 +41,14 @@ class MainActivity : Activity() {
         override fun run() {
             refresh()
             ui.postDelayed(this, 500)
+        }
+    }
+
+    private val pathTick = object : Runnable {
+        override fun run() {
+            pathView.streaming = StreamService.streaming
+            pathView.invalidate()
+            ui.postDelayed(this, 100)
         }
     }
 
@@ -56,12 +67,14 @@ class MainActivity : Activity() {
             textSize = 26f
             setTypeface(typeface, Typeface.BOLD)
         })
-        root.addView(TextView(this).apply {
+        intro = TextView(this).apply {
             text = "Strap the phone to the shoe. Start, then keep the foot still for 2 s. " +
                 "Every session is also saved on the phone (Download/IMU Stream), so nothing is lost if Wi-Fi drops. " +
-                "Keep this screen open while walking: Wi-Fi stays fastest with the screen on."
+                "Keep this screen open while walking: Wi-Fi stays fastest with the screen on. " +
+                "The laptop sends the path back, and it is drawn below."
             setPadding(0, pad / 2, 0, pad)
-        })
+        }
+        root.addView(intro)
         root.addView(TextView(this).apply { text = "Laptop IP (shown in the laptop app; leave empty to record on the phone only)" })
         host = EditText(this).apply {
             setText(prefs.getString("host", "192.168.1.100"))
@@ -96,6 +109,9 @@ class MainActivity : Activity() {
             gravity = Gravity.START
         }
         root.addView(status)
+        pathView = PathView(this)
+        root.addView(pathView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            .apply { topMargin = pad / 2 })
         setContentView(root)
 
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -108,10 +124,12 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         ui.post(tick)
+        ui.post(pathTick)
     }
 
     override fun onPause() {
         ui.removeCallbacks(tick)
+        ui.removeCallbacks(pathTick)
         super.onPause()
     }
 
@@ -140,13 +158,14 @@ class MainActivity : Activity() {
     private fun refresh() {
         val on = StreamService.running
         button.text = if (on) "Stop" else "Start"
+        intro.visibility = if (on) View.GONE else View.VISIBLE   // room for the path while running
         host.isEnabled = !on
         port.isEnabled = !on
         for (i in 0 until rates.childCount) rates.getChildAt(i).isEnabled = !on
         status.text = buildString {
             append(if (!on) "stopped\n" else if (StreamService.streaming) "STREAMING + RECORDING\n" else "RECORDING ON THE PHONE\n")
             append("accel %.0f Hz   gyro %.0f Hz\n".format(Locale.US, StreamService.accHz, StreamService.gyroHz))
-            if (StreamService.streaming) append("packets sent ${StreamService.packets}\n")
+            if (StreamService.streaming) append("packets sent ${StreamService.packets}   path packets back ${StreamService.pathPackets}\n")
             if (StreamService.recordingName.isNotEmpty()) {
                 append("saved: ${StreamService.recordingName}\n")
                 append("events saved ${StreamService.recordedEvents}\n")

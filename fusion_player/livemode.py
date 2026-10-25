@@ -1,9 +1,11 @@
 """Live mode for Fusion Player: the phone's IMU stream (IMU Stream app over Wi-Fi) through the foot filter, as it
-happens. The receiver, tracker and recording session are imu_live's (imunav.live)."""
+happens, with the path sent back to the phone to draw. The receiver, tracker, path sender and recording session
+are imu_live's (imunav.live)."""
 import collections, time
 from pathlib import Path
 import numpy as np
 import foot  # noqa: F401  (puts imu_live on sys.path)
+from imunav.live.pathlink import PathSender
 from imunav.live.receiver import Receiver, local_ip
 from imunav.live.session import Session
 from imunav.live.tracker import TRACKING, LiveTracker
@@ -34,18 +36,21 @@ class StripTracker(LiveTracker):
 
 
 class LiveRun:
-    """One live session: listens on `port`, tracks, records every sample to OUT_DIR. Raises OSError if the port is taken."""
+    """One live session: listens on `port`, tracks, records every sample to OUT_DIR, sends the path back to the
+    phone. Raises OSError if the port is taken."""
 
     def __init__(self, port=5555):
         self.port = port
         self.tracker = StripTracker(PRESETS["shoe"])
         self.rx = Receiver(self.tracker, port, FS)
         self.session = Session(self.rx, self.tracker, OUT_DIR)
-        self.rx.start()
+        self.sender = PathSender(self.rx, self.tracker)
+        self.rx.start(); self.sender.start()
         self.ip = local_ip()
         self._dist = collections.deque()          # (wall time, distance) for the walking speed
 
     def stop(self):
+        self.sender.stop()
         self.rx.stop()
         self.session.close()
 
@@ -60,4 +65,5 @@ class LiveRun:
         s["link_age"] = now - self.rx.last_rx if self.rx.last_rx else None
         s["rate"], s["lost"] = self.rx.acc_rate, self.rx.lost
         s["file"], s["rows"] = Path(self.session.path).name, self.rx.rec_rows
+        s["sent"] = self.sender.sent                # path packets sent back to the phone
         return s

@@ -37,6 +37,7 @@ class Receiver(threading.Thread):
         self.last_t = None                       # phone time (s) of the newest aligned sample
         self.packets = self.lost = self.bad = 0
         self.last_rx = 0.0
+        self.peer = None                         # (ip, port) the newest IMU packet came from: the phone
         self._last_seq = None
         self._acc_count, self._rate_t0, self.acc_rate = 0, time.monotonic(), 0.0
         self.running = True
@@ -44,9 +45,11 @@ class Receiver(threading.Thread):
     def run(self):
         while self.running:
             try:
-                data, _ = self.sock.recvfrom(2048)
+                data, addr = self.sock.recvfrom(2048)
             except socket.timeout:
                 continue
+            except ConnectionResetError:
+                continue    # Windows reports a path packet the phone did not take (app closed) on the next read
             except OSError:
                 break
             try:
@@ -54,6 +57,7 @@ class Receiver(threading.Thread):
             except ValueError:
                 self.bad += 1
                 continue
+            self.peer = addr
             self._account(seq, len(records))
             self._ingest(records)
 
@@ -108,6 +112,11 @@ class Receiver(threading.Thread):
             self._rec_after = self._newest           # the new file starts after everything received so far
             if self.rec:
                 self.rec.write("t,gx,gy,gz,ax,ay,az,gap\n")   # gap: seconds of data missing before this row
+
+    def send(self, data):
+        """Send a packet back to the phone, from the port it streams to (so it needs no setting of its own)."""
+        if self.peer is not None and self.running:
+            self.sock.sendto(data, self.peer)
 
     def stop(self):
         self.running = False

@@ -14,10 +14,10 @@ This folder holds the pieces behind shoe-mounted tracking:
 | Path | What it is |
 |---|---|
 | `imunav/` | The filter: calibration (`calib.py`), stillness detection (`zupt.py`), the 15-state Kalman filter (`ins.py`) and one-sample-at-a-time navigation (`pipeline.py`, with the tuned `shoe` preset). |
-| `imunav/live/` | The live link: packet format (`protocol.py`), the UDP receiver, lining up the two sensor streams, the live tracker, labelled recording sessions, and loading recordings. |
+| `imunav/live/` | The live link: packet formats (`protocol.py`), the UDP receiver, lining up the two sensor streams, the live tracker, sending the path back to the phone (`pathlink.py`), labelled recording sessions, and loading recordings. |
 | `android/` | **IMU Stream** (Kotlin, no libraries). |
 | `scripts/` | Tools, listed below. |
-| `tests/` | 47 tests: `python -m pytest tests`. |
+| `tests/` | 49 tests: `python -m pytest tests`. |
 | `docs/data_collection.md` | How to record court walks: mounting, the walking routine, the walk list and a log sheet. |
 | `docs/calibration_procedure.md` | Sensor calibration options for the foot filter: static bias, six-position, gyro scale, Allan variance. |
 | `results/court_20261025/` | The court session: tracks and scores before tuning (`untuned`), after tuning on 5 walks (`tuned`) and the final settings (`final`), plus the tuning logs. |
@@ -59,7 +59,7 @@ Run them from this folder.
 | `scripts/diagnose.py rec.csv` | Physics checks with no ground truth, stride by stride: one stance per stride, sensible stride length, speed near zero at each stance. |
 | `scripts/court_eval.py phone.csv windows.json` | Scores court walks against the court. Corners are found from the turns and are the known truth. Gives Tier 1, Tier 2, return-to-start, and per-walk plots of error against distance and time. |
 | `scripts/court_tune.py phone.csv windows.json --train …` | Tunes the filter on chosen walks only, all walks in parallel. Stages: search, refine, ablate, leave-one-out. |
-| `scripts/sim_phone.py` | Pretends to be the phone: streams a synthetic walk to Fusion Player's live mode. |
+| `scripts/sim_phone.py` | Pretends to be the phone: streams a synthetic walk to Fusion Player's live mode, and reports the path the laptop sends back. |
 | `scripts/bench_realtime.py` | Measures how long the filter takes per sample, against the live budget. |
 | `scripts/run_compare.py --synthetic` | Compares the filter options on synthetic walks. |
 | `scripts/tune.py`, `scripts/run_allan.py`, `scripts/check_env.py` | Synthetic tuning, Allan variance of a static recording, and an environment check. |
@@ -80,14 +80,26 @@ Recordings are not in the repository. Put your own in `recordings/` (ignored by 
 - Reads the accelerometer and the raw (uncalibrated) gyroscope as fast as the phone allows.
 - Saves everything to `Download/IMU Stream/imu_<date>_<time>.csv` on the phone.
 - With a laptop address, it also streams over UDP (port 5555).
+- While streaming, it draws the live path that Fusion Player sends back: the same path the laptop shows, with the
+  state (calibrating or tracking), steps, distance and walking speed.
 - Holds a Wi-Fi lock and keeps the screen on while recording.
 
-**Packet format** (little-endian, must match `imunav/live/protocol.py`):
+The data flow: phone sensors → laptop (foot filter, laptop graph) → path packets back to the phone → phone graph.
+
+**Packet formats** (little-endian, must match `imunav/live/protocol.py`):
 
 ```
-"IMU1" | uint32 seq | uint16 count | count × [uint8 type, int64 t_ns, float32 x, y, z]
-type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s)
+phone -> laptop:  "IMU1" | uint32 seq | uint16 count | count × [uint8 type, int64 t_ns, float32 x, y, z]
+                  type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s)
+laptop -> phone:  "PTH1" | uint16 generation | uint8 state | uint8 flags | uint32 steps |
+                  float32 distance, speed, motion, current x, current y |
+                  uint32 points in the path | uint32 first point here | uint16 count | count × [float32 x, y]
 ```
+
+The path packets go back to the address and port the phone streams from, so the phone needs no extra setting. The
+path has one point per 0.1 m. Ten times a second the laptop sends the newest points, plus a block of older ones
+taken in turn, so a lost packet is filled in a moment later. A new generation (recalibrated, origin moved, or the
+path turned to point up after 3 m) tells the phone to drop what it has.
 
 **The phone's own file:**
 - starts with `#` header lines (phone model, sensor names and ranges);
@@ -95,7 +107,9 @@ type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s)
 
 `imunav.live.recording.load_recording` reads it, and the laptop's CSVs too.
 
-**Build:** `cd android`, then `gradlew.bat assembleDebug`. The APK is in `app/build/outputs/apk/debug/`.
+**Build:** `cd android`, then `gradlew.bat assembleDebug`. The APK is in `app/build/outputs/apk/debug/`. If the
+build fails with "Unable to delete directory" inside a OneDrive folder, OneDrive is locking build files: build a copy
+of `android/` outside OneDrive.
 
 ## Results
 

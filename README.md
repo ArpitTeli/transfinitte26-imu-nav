@@ -67,6 +67,11 @@ You need a Windows laptop and an Android phone (accelerometer and gyroscope; mos
    typical phone).
 4. Keep IMU Stream open on screen while walking: Wi-Fi stays fastest with the screen on.
 
+The laptop sends the path back, and the phone draws it under its controls: the same graph as the laptop's, with
+**CALIBRATING** or **TRACKING**, steps, distance and speed. The flow is phone sensors → laptop (filter and graph) →
+path back to the phone → phone graph. It needs no extra setting. If the laptop stops, the phone shows
+**NO PATH FROM LAPTOP** and keeps recording.
+
 ### 5. Calibrate, then walk
 
 1. The walker stands **still**, with the phone on the shoe.

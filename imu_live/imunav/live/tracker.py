@@ -22,6 +22,7 @@ class LiveTracker:
         self.cfg = cfg
         self.display_dt = 1.0 / display_hz
         self.lock = threading.Lock()
+        self.gen = 0                        # bumped whenever the path is replaced rather than extended
         with self.lock:
             self._reset()
 
@@ -37,9 +38,11 @@ class LiveTracker:
                 self.nav.p[:] = 0.0
                 self._p_last = self.nav.p.copy()
                 self.path, self.path_t = [self._p_last], [self._t_last]
+                self.gen += 1
             self.steps, self.distance = 0, 0.0
 
     def _reset(self):
+        self.gen += 1
         self.state = CALIBRATING
         self.nav = None
         self.cal = None
@@ -104,6 +107,7 @@ class LiveTracker:
         self._t_last = T[-1]
         self._p_last = self.nav.p.copy()
         self.path, self.path_t = [self._p_last], [T[-1]]
+        self.gen += 1
         self.state = TRACKING
         self.message = "Tracking - walk"
         self._buf = []
@@ -121,16 +125,33 @@ class LiveTracker:
         A = np.array([b[2] for b in self._buf[i:]])
         self.motion = (float(G.std(0).max()), float(A.std(0).max()))
 
+    def path_since(self, gen, k):
+        """(generation, [(x, y), ...] from path point k on), for a reader that follows the path as it grows.
+        When `gen` is no longer the current generation the path was replaced, and all of it is returned."""
+        with self.lock:
+            if gen != self.gen:
+                k = 0
+            return self.gen, [(float(p[0]), float(p[1])) for p in self.path[k:]]
+
+    def status(self):
+        """snapshot() without the path"""
+        with self.lock:
+            return self._status()
+
     def snapshot(self):
         with self.lock:
-            ins = getattr(self.nav, "ins", None) if self.nav else None
-            return {
-                "state": self.state, "message": self.message, "steps": self.steps,
-                "distance": self.distance,
-                "p": np.array(self.path) if self.path else np.zeros((0, 3)),
-                "still": self._still_last,
-                "speed": float(np.linalg.norm(self.nav.v[:2])) if self.nav else 0.0,
-                "rejected": dict(ins.n_rejected) if ins else {},
-                "gaps": self.gaps, "gap_time": self.gap_time,
-                "motion": self.motion, "still_limits": (GYRO_STILL_STD, ACC_STILL_STD),
-            }
+            s = self._status()
+            s["p"] = np.array(self.path) if self.path else np.zeros((0, 3))
+            return s
+
+    def _status(self):
+        ins = getattr(self.nav, "ins", None) if self.nav else None
+        return {
+            "state": self.state, "message": self.message, "steps": self.steps,
+            "distance": self.distance,
+            "still": self._still_last,
+            "speed": float(np.linalg.norm(self.nav.v[:2])) if self.nav else 0.0,
+            "rejected": dict(ins.n_rejected) if ins else {},
+            "gaps": self.gaps, "gap_time": self.gap_time,
+            "motion": self.motion, "still_limits": (GYRO_STILL_STD, ACC_STILL_STD),
+        }

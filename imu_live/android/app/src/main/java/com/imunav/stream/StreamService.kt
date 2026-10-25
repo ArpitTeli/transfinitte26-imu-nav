@@ -31,6 +31,7 @@ import java.io.OutputStreamWriter
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.SocketTimeoutException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.text.SimpleDateFormat
@@ -51,6 +52,8 @@ import java.util.Locale
  * Wire format (little-endian), must match imunav/live/protocol.py:
  *   "IMU1" | uint32 seq | uint16 count | count x [uint8 type, int64 t_ns, float32 x, y, z]
  *   type 1 = accelerometer (m/s^2, gravity included), 2 = gyroscope (rad/s, uncalibrated)
+ * The laptop sends the live path back to the port the samples come from; a listening thread hands those packets
+ * to LivePath for the screen to draw.
  * Recording format (read by imunav/live/recording.py): '#' header lines, then  type,t_ns,x,y,z
  */
 class StreamService : Service(), SensorEventListener {
@@ -77,12 +80,14 @@ class StreamService : Service(), SensorEventListener {
         @Volatile var recordingName = ""
         @Volatile var recordedEvents = 0L
         @Volatile var accelRangeG = 0.0
+        @Volatile var pathPackets = 0L
     }
 
     private lateinit var sensors: SensorManager
     private var thread: HandlerThread? = null
     private var handler: Handler? = null
     private var socket: DatagramSocket? = null
+    private var listener: Thread? = null
     private var target: InetAddress? = null
     private var port = 5555
     private var wakeLock: PowerManager.WakeLock? = null
@@ -123,6 +128,8 @@ class StreamService : Service(), SensorEventListener {
         error = null
         packets = 0
         recordedEvents = 0
+        pathPackets = 0
+        LivePath.clear()
         streaming = host.isNotEmpty()
         running = true
 
@@ -144,7 +151,7 @@ class StreamService : Service(), SensorEventListener {
             if (streaming) {
                 try {
                     target = InetAddress.getByName(host)
-                    socket = DatagramSocket()
+                    socket = DatagramSocket().also { listen(it) }
                 } catch (e: Exception) {
                     error = "network: ${e.message} (still recording on the phone)"
                     streaming = false
@@ -164,6 +171,24 @@ class StreamService : Service(), SensorEventListener {
             h.postDelayed(flusher, FLUSH_MS)
         }
         return START_NOT_STICKY
+    }
+
+    /** The live path the laptop sends back, to the port this socket sends from. Ends when the socket closes. */
+    private fun listen(s: DatagramSocket) {
+        s.soTimeout = 500
+        listener = Thread({
+            val pkt = DatagramPacket(ByteArray(2048), 2048)
+            while (!s.isClosed) {
+                try {
+                    pkt.length = pkt.data.size       // receive() shrinks it to the last packet's size
+                    s.receive(pkt)
+                    if (LivePath.update(pkt.data, pkt.length)) pathPackets++
+                } catch (_: SocketTimeoutException) {
+                } catch (_: Exception) {
+                    if (s.isClosed) break
+                }
+            }
+        }, "path-listener").apply { isDaemon = true; start() }
     }
 
     private fun acquireWifiLock() {
