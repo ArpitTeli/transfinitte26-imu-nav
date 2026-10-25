@@ -1,5 +1,5 @@
 """Live mode for Fusion Player: the phone's IMU stream (IMU Stream app over Wi-Fi) through the foot filter, as it
-happens. The receiver, tracker and recording session are imu_live's, the same code the IMU Live app runs."""
+happens. The receiver, tracker and recording session are imu_live's (imunav.live)."""
 import collections, time
 from pathlib import Path
 import numpy as np
@@ -9,7 +9,7 @@ from imunav.live.session import Session
 from imunav.live.tracker import TRACKING, LiveTracker
 from imunav.pipeline import PRESETS
 
-FS = 400.0               # the filter's sample grid, as in the IMU Live app
+FS = 400.0               # the filter's sample grid
 STRIP_S = 30.0           # seconds of raw sensor magnitudes kept for the live strip charts
 SPEED_S = 3.0            # walking speed = distance over the last few seconds
 OUT_DIR = Path.home() / "Documents" / "IMU Live"

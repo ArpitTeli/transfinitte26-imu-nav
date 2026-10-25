@@ -31,7 +31,7 @@ typedef struct {
     float zupt_v, zupt_w, zupt_a;    // thresholds on LOW-PASSED signals (m/s, rad/s, m/s^2)
     float zupt_s;                    // s the detector must stay 'still' before ZUPT applies (seconds, so it is rate-independent)
     int   zupt_bias_mode;            // gyro bias from stops: 0 = update every sample (legacy), 1 = one update per stop (mean)
-                                     //   mode 1 validated on NCLT training sessions + sim (validate_zb.py)
+                                     //   mode 1 validated on NCLT training sessions + sim (robot_filter/README.md)
     float zupt_bias_min_s;           // s: shorter stops do not touch the gyro bias (mode 1)
     float zupt_bias_max_s;           // s: on a long stop, update every this many seconds (mode 1)
     float zupt_bias_floor;           // rad/s: min std of a stop's mean rate (correlated wobble, mode 1)

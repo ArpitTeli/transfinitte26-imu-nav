@@ -1,1 +1,0 @@
-zupt_v=0.03 zupt_s=8.4 vscale=0.95 r_mag=0.6 mag_tol=0.3 dip_tol=0.1 step_tol=0.6 gate=6

@@ -1,4 +1,4 @@
-"""Recorded phone walks for Fusion Player: an IMU Stream (phone) or IMU Live (laptop) recording -> the foot filter ->
+"""Recorded phone walks for Fusion Player: an IMU Stream (phone) or live-session (laptop) recording -> the foot filter ->
 a playback timeline shaped like engine.process's NCLT timeline, but with no ground truth.
 
 The filter is imu_live's imunav: the same code and shoe preset as live mode. Results are cached in cache/.

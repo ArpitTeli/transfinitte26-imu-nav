@@ -92,20 +92,6 @@ def test_initial_velocity_from_ground_truth():
     assert np.allclose(nav.v, [0.5, 0, 0])
 
 
-def test_extract_euroc_from_nested_zip(tmp_path):
-    from extract_euroc import extract
-    inner = io.BytesIO()
-    with zipfile.ZipFile(inner, "w") as zi:
-        zi.writestr("mav0/imu0/data.csv", "#timestamp,a\n1,2\n")
-        zi.writestr("mav0/cam0/data/1.png", "x")
-    outer = tmp_path / "machine_hall.zip"
-    with zipfile.ZipFile(outer, "w") as zo:
-        zo.writestr("machine_hall/MH_01_easy/MH_01_easy.zip", inner.getvalue())
-    csv = extract(outer, "MH_01_easy", tmp_path / "out")
-    assert csv.read_text().startswith("#timestamp")
-    assert not (tmp_path / "out" / "MH_01_easy" / "mav0" / "cam0").exists()
-
-
 def test_chi2_ppf_matches_scipy():
     from scipy.stats import chi2
     from imunav.ins import chi2_ppf

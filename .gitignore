@@ -1,20 +1,33 @@
-# Data: NCLT sessions (large, under their own licence), phone recordings and converted runs
+# Data: NCLT sessions (large, under their own licence), phone recordings, converted runs and caches
 Sample datasets/
 nclt_data/
 imu_live/recordings/
-work/*.csv
+robot_filter/*.csv
+robot_filter/s0*_params.txt
+robot_filter/s0*_meta.txt
 *.tar.gz
 *.npz
 
-# Build output and binaries (rebuildable: see each folder's README)
+# Output the robot-filter tools write next to themselves when run
+robot_filter/*.png
+robot_filter/settings/*_eval4.json
+robot_filter/calib.json
+robot_filter/calib.h
+
+# Build output and binaries (rebuildable: see the READMEs). The two replay.exe files (the robot filter compiled
+# for Windows) are kept, so the robot-filter tools and Fusion Player's NCLT playback run without a C compiler.
 imu_live/build/
 imu_live/android/.gradle/
 imu_live/android/app/build/
 imu_live/android/local.properties
 firmware/.pio/
 firmware/bin/
+fusion_player/build/
+fusion_player/packaging/icon.png
 *.apk
 *.exe
+!fusion_player/filter/replay.exe
+!robot_filter/replay.exe
 *.dll
 *.elf
 *.pdb
@@ -27,4 +40,3 @@ __pycache__/
 fusion_player/cache/
 imu_live/results/live/
 *.log
-fusion_player/build/

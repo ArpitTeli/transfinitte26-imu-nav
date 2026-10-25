@@ -1,91 +1,117 @@
-# IMU-based indoor positioning (Embien Transfinitte'26, Problem 4)
+# IMU Live: the foot filter, the phone app and the walk tools
 
-Real-time dead reckoning from an IMU with zero-velocity updates. Python, numpy only for the filter code. **Aiding sources used: none.** The only external information is the zero-velocity, zero-rotation-rate and gravity constraints applied while the platform is detected as stationary.
+This folder holds the pieces behind shoe-mounted tracking:
 
-## What is in here
+- **`imunav`**, the Python foot filter;
+- **IMU Stream**, the Android app that streams and records the phone's sensors;
+- the **tools** that check, score and tune walks.
 
-| Module | Purpose |
+[Fusion Player](../fusion_player/) uses all of them for its live mode and walk playback. The root
+[README](../README.md) explains how to use the apps end to end.
+
+## Contents
+
+| Path | What it is |
 |---|---|
-| `imunav/io.py` | Configurable CSV loaders (EuRoC and custom layouts), timestamp checks, gap resampling, ground-truth interpolation |
-| `imunav/calib.py` | Static bias, six-position accel fit, gyro scale/misalignment fit, Allan variance |
-| `imunav/orientation.py` | Madgwick, Mahony, multiplicative attitude EKF (all one sample at a time) |
-| `imunav/zupt.py` | Causal stationary detector and its evaluation against ground truth |
-| `imunav/ins.py` | Strapdown integration and the 15-state error-state EKF (ZUPT, ZARU, gravity updates, chi-square gating) |
-| `imunav/pipeline.py` | `Navigator.step()`: one sample in, one state out, no I/O and no look-ahead |
-| `imunav/metrics.py`, `plots.py` | Final/RMSE/30 s error, return-to-start, drift %, all plots |
-| `imunav/synth.py` | Synthetic walks (body-mounted and shoe-mounted) with known path, bias, noise and scale error |
-| `imunav/live/` | UDP protocol, accel/gyro stream alignment, live tracker and receiver for the phone app |
-| `android/` | IMU Stream Android app (Kotlin, no libraries) |
+| `imunav/` | The filter: calibration (`calib.py`), stillness detection (`zupt.py`), the 15-state Kalman filter (`ins.py`) and one-sample-at-a-time navigation (`pipeline.py`, with the tuned `shoe` preset). |
+| `imunav/live/` | The live link: packet format (`protocol.py`), the UDP receiver, lining up the two sensor streams, the live tracker, labelled recording sessions, and loading recordings. |
+| `android/` | **IMU Stream** (Kotlin, no libraries). |
+| `scripts/` | Tools, listed below. |
+| `tests/` | 47 tests: `python -m pytest tests`. |
+| `docs/data_collection.md` | How to record court walks: mounting, the walking routine, the walk list and a log sheet. |
+| `docs/calibration_procedure.md` | Sensor calibration options for the foot filter: static bias, six-position, gyro scale, Allan variance. |
+| `results/court_20261025/` | The court session: tracks and scores before tuning (`untuned`), after tuning on 5 walks (`tuned`) and the final settings (`final`), plus the tuning logs. |
+| `results/synthetic/`, `results/*.csv` | Early comparison of filters on synthetic walks. |
+| `configs/layout.example.json` | Column layout for loading other people's IMU logs with `run_compare.py`. |
 
-## Live demo (phone on the shoe)
+## How the foot filter works
 
-An Android app (`android/`) streams the phone's IMU over Wi-Fi to `scripts/live.py`, which draws the walked path in real time. See **[docs/live_demo.md](docs/live_demo.md)** for installing the app, the network setup and scoring walks with `scripts/replay.py`.
+1. **Start-up.** The shoe must be still for 2 s. The filter measures the gyro bias and the direction of gravity,
+   which sets the initial tilt.
+2. **Every sample.** The gyro updates the orientation. The accelerometer, with gravity removed, updates the velocity,
+   and the velocity moves the position.
+3. **Every step.** For about 0.3 s the shoe is flat and still on the ground. A detector spots this from low rotation,
+   steady acceleration, and an acceleration that gravity alone explains.
+4. **While the foot is flat:**
+   - **Zero velocity:** the speed is set to zero, which cancels the drift built up during the step.
+   - **Zero rotation:** the gyro bias is re-learned.
+5. **Safety checks.** Every correction is tested against what the filter expects. Outliers are rejected, and a
+   diverged filter re-opens and recovers.
+6. **Data gaps.** When Wi-Fi drops packets, nothing is integrated across the hole. The filter restarts at the next
+   flat foot.
 
-## Setup
+The `shoe` preset was tuned on the seven court walks of 25 Oct 2026. Two things mattered most:
+- **Trusting each zero-velocity update less.** A real foot is never perfectly still at stance.
+- **Assuming a noisier gyro than the datasheet suggests.**
 
-```bash
-pip install -r requirements.txt
-python scripts/check_env.py
-python -m pytest
+The changes and the tuning record are in the preset's comment in `imunav/pipeline.py` and in
+`results/court_20261025/`.
+
+The phone cannot tell where north is, so heading drifts slowly. That is the main limit on accuracy.
+
+## Tools
+
+Run them from this folder.
+
+| Script | What it does |
+|---|---|
+| `scripts/replay.py rec.csv --loop` | Runs a recording through the live tracker, prints distance and the final or return-to-start error, and saves a plot. |
+| `scripts/diagnose.py rec.csv` | Physics checks with no ground truth, stride by stride: one stance per stride, sensible stride length, speed near zero at each stance. |
+| `scripts/court_eval.py phone.csv windows.json` | Scores court walks against the court. Corners are found from the turns and are the known truth. Gives Tier 1, Tier 2, return-to-start, and per-walk plots of error against distance and time. |
+| `scripts/court_tune.py phone.csv windows.json --train …` | Tunes the filter on chosen walks only, all walks in parallel. Stages: search, refine, ablate, leave-one-out. |
+| `scripts/sim_phone.py` | Pretends to be the phone: streams a synthetic walk to Fusion Player's live mode. |
+| `scripts/bench_realtime.py` | Measures how long the filter takes per sample, against the live budget. |
+| `scripts/run_compare.py --synthetic` | Compares the filter options on synthetic walks. |
+| `scripts/tune.py`, `scripts/run_allan.py`, `scripts/check_env.py` | Synthetic tuning, Allan variance of a static recording, and an environment check. |
+
+`windows.json` names each walk and when it happened on the phone's clock, for example
+`{"A1": [332080.4, 332344.0], ...}`. The laptop's per-walk files give these times: the first and last `t` of each file.
+
+**Example:** score the court session, then look at `results/court_20261025/final/`.
+
+```
+python scripts/court_eval.py recordings/imu_20261025_041004.csv results/court_20261025/walk_windows.json --out results/court_20261025/final
 ```
 
-## Run
+Recordings are not in the repository. Put your own in `recordings/` (ignored by git).
 
-```bash
-python scripts/run_compare.py --synthetic                              # all filters, plots in results/synthetic
-python scripts/run_compare.py --synthetic --seeds 10 11 12 13 14       # mean table over held-out seeds
-python scripts/extract_euroc.py machine_hall.zip MH_01_easy            # after downloading the 12 GB zip by hand
-python scripts/run_compare.py --euroc data/euroc/MH_01_easy
-python scripts/run_compare.py --imu imu.csv --gt gt.csv --layout configs/layout.json   # Embien traces
-python scripts/tune.py --synthetic-seeds 1 2 3 --mode ins --grid "zupt_res_thr=0.2,0.3" "gate_prob=0.99,0.999"
-python scripts/run_allan.py static_log.csv --fs 200
-python scripts/bench_realtime.py
+## IMU Stream (the phone app)
+
+- Reads the accelerometer and the raw (uncalibrated) gyroscope as fast as the phone allows.
+- Saves everything to `Download/IMU Stream/imu_<date>_<time>.csv` on the phone.
+- With a laptop address, it also streams over UDP (port 5555).
+- Holds a Wi-Fi lock and keeps the screen on while recording.
+
+**Packet format** (little-endian, must match `imunav/live/protocol.py`):
+
+```
+"IMU1" | uint32 seq | uint16 count | count × [uint8 type, int64 t_ns, float32 x, y, z]
+type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s)
 ```
 
-For Embien's traces, copy `configs/layout.example.json` and edit the column names, time scale (`time_scale` converts the time column to seconds), and unit scales (`gyro_scale` 0.01745 for deg/s, `acc_scale` 9.80665 for g).
+**The phone's own file:**
+- starts with `#` header lines (phone model, sensor names and ranges);
+- then has rows of `type,t_ns,x,y,z`.
 
-### Data format
+`imunav.live.recording.load_recording` reads it, and the laptop's CSVs too.
 
-IMU CSV: time, gyro x/y/z (rad/s after scaling), accel x/y/z (m/s² after scaling), ideally 200 Hz. Ground-truth CSV: time, position x/y/z (m), and optionally quaternion w/x/y/z (body to world) and velocity. Frame: world z is up; the start position and heading are taken from the first ground-truth sample.
+**Build:** `cd android`, then `gradlew.bat assembleDebug`. The APK is in `app/build/outputs/apk/debug/`.
 
-## Method in one paragraph
+## Results
 
-Gyro bias and local gravity come from the stationary start. A causal detector flags still periods (gyro magnitude, accel-magnitude variance, and specific force not explained by gravity). The 15-state EKF integrates the IMU and, while still, applies zero-velocity, zero-angular-rate and gravity-vector measurements at about 10 Hz. Each measurement goes through a chi-square gate, so false "still" detections during slow starts get rejected, and the counts are logged. The Madgwick and Mahony pipelines (orientation filter plus strapdown plus velocity reset) are kept as comparisons.
+**Court walks** (final settings, 7 walks, 1,000 m in all):
+- typical error at the court corners 0.49 m;
+- Tier 1 (first 30 s) 0.15 to 0.84 m;
+- every 50 m stretch within 3 % of the distance;
+- return to start 0.34 to 1.65 m.
 
-## Results so far (synthetic data only)
+**Synthetic walks** (early comparison, held-out seeds; 48 m rectangle with four stops):
 
-Synthetic rectangular walk: 48 m path, four stops, EuRoC-grade noise, gyro bias about 0.002 rad/s, accel bias about 0.04 m/s². Filter settings were tuned on seeds 1 to 3. The table is the mean over **held-out seeds 10 to 14**.
+| Filter | Final error | Drift |
+|---|---|---|
+| Madgwick, no zero-velocity updates | 65.0 m | 135 % |
+| Madgwick + zero-velocity updates | 9.3 m | 19 % |
+| Mahony + zero-velocity updates | 11.0 m | 23 % |
+| **15-state Kalman filter + zero-velocity updates** | **0.66 m** | **1.4 %** |
 
-| Pipeline | Final error | RMSE | Max error | Error 30 s after motion starts | Drift % of distance |
-|---|---|---|---|---|---|
-| Madgwick, no ZUPT | 65.0 m | 29.1 m | 65.0 m | 11.8 m | 135 % |
-| Madgwick + ZUPT | 9.3 m | 5.6 m | 9.5 m | 4.8 m | 19 % |
-| Mahony + ZUPT | 11.0 m | 6.5 m | 11.0 m | 5.4 m | 23 % |
-| Attitude-EKF + ZUPT | 5.3 m | 15.2 m | 23.4 m | 23.4 m | 11 % |
-| 15-state EKF, no ZUPT | 111.1 m | 45.0 m | 111.1 m | 9.2 m | 230 % |
-| **15-state EKF + ZUPT** | **0.66 m** | **2.5 m** | **7.8 m** | **5.1 m** | **1.4 %** |
-
-Other measured facts:
-- Per-sample update time: worst case about 1.1 ms, p99 under 0.4 ms (budget 5 ms), on this laptop's Python.
-- Mid-run error is much larger than final error: the EKF's worst point averages 7.8 m, inside the first leg. The 30 s error is measured from the start of motion, as the problem statement defines it, and averages 5.1 m, so **the core-tier "under 1 m over the first 30 s of motion" target is not met on synthetic data**. See `docs/calibration_procedure.md` section 2 for why and the mitigation.
-- The stationary detector flags about 12 % of moving samples as still (mostly slow ramps) and misses about 20 % of real stops (turns in place). The EKF gate absorbs most of the false positives.
-
-**Not yet done:** EuRoC and Embien traces have not been run. EuRoC is a flying drone with almost no stops, so ZUPT will help little there. Expect large drift on it and use it for calibration and orientation checks only. Real performance on Embien's marked-path traces is the number that matters.
-
-## Honest limitations
-
-- Yaw is not observable without a heading aid; it drifts with residual gyro bias. Over a 50 m path this is small but real.
-- Accuracy depends on stops. With no stops the error grows quickly.
-- Accel bias and tilt are only separable after the platform has rotated between two stops (see calibration doc).
-- The synthetic generator is easier than a real walk or robot; the real traces decide the outcome.
-- No hardware logger, fixed-point port or own-hardware data yet.
-
-## Tools, libraries and datasets (state these in the report)
-
-numpy, scipy (chi-square quantile), pandas (CSV loading), matplotlib (plots), pytest. Datasets: synthetic generator (own), EuRoC MAV (if used), Embien traces (if used). The code was written with AI assistance (Claude Code); disclose that per the hackathon's own-work rule.
-
-## Next steps
-
-1. Run on Embien's traces and tune on a subset only; keep one trace held out for the final number.
-2. Pick one aiding source if a bonus tier is wanted (UWB or tag anchors), and declare it.
-3. Port `Navigator.step` to C for ESP32 or STM32 (the filter has no I/O and fixed-size 15×15 matrices); compare against this Python reference.
+That comparison is why the 15-state filter runs live.

@@ -1,6 +1,6 @@
 """Pretend to be the phone: stream a synthetic shoe-mounted walk to the live app over UDP.
 
-Run:  python scripts/live.py          (one terminal)
+Run:  Fusion Player, Live from the phone (one terminal)
       python scripts/sim_phone.py     (another terminal)
 Accel and gyro are sent as separate, slightly offset event streams, like Android does.
 """

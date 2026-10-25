@@ -17,8 +17,8 @@ Shortcuts: `python app.py walk.csv` opens a walk, `python app.py sen.tar.gz grou
 ## Recorded data
 
 1. **Open recorded data…** (Ctrl+O) and pick the kind:
-   - **Phone walk recording:** the phone's own copy (`Download/IMU Stream/imu_….csv`) or IMU Live's
-     (`Documents/IMU Live/….csv`). The walk must start with the shoe still for 2 s. A 45-minute recording takes a few
+   - **Phone walk recording:** the phone's own copy (`Download/IMU Stream/imu_….csv`) or the laptop's copy of a live
+     session (`Documents/IMU Live/….csv`). The walk must start with the shoe still for 2 s. A 45-minute recording takes a few
      minutes the first time.
    - **NCLT robot dataset:** the sensor archive `<date>_sen.tar.gz` and `groundtruth_<date>.csv`, exactly as downloaded,
      plus the filter settings profile and how the estimate is aligned to ground truth. The first run takes 10–30 s.
@@ -55,6 +55,13 @@ and the phone keeps its own complete copy.
   as the ESP32 firmware: `python -m ziglang cc -O2 -o filter/replay.exe filter/replay.c filter/fusion.c`
 - `foot.py` (phone walks): loads the recording with `imu_live`'s loader, calibrates on the first still 2 s, runs the
   foot filter (`imunav`, shoe preset) and builds a 20 Hz timeline.
-- `livemode.py` (live): `imu_live`'s receiver, tracker and recording session, the same code as the IMU Live app.
+- `livemode.py` (live): `imu_live`'s receiver, tracker and recording session (`imunav.live`).
 
 The phone parts need the `imu_live` folder next to this one.
+
+## Build the Windows installer
+
+`python packaging/build_windows.py` (needs `pip install pyinstaller` and Inno Setup 6). It writes
+`build/installer/Fusion-Player-Setup-<version>.exe`, with the phone APK and the guides included when they have been
+built. On a PC that still has the older IMU Live app, the installer removes it; recordings in `Documents\IMU Live` are
+kept.

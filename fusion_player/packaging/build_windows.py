@@ -20,7 +20,7 @@ OUT = ROOT / "build"
 # The intermediate build goes outside the project (PyInstaller's nested files can pass Windows' 260-character path
 # limit, and OneDrive locks folders while syncing them, which makes --clean fail).
 BUILD = Path(os.environ.get("FUSION_BUILD") or Path(tempfile.gettempdir()) / "fusion-build")
-ICON = IMU_LIVE / "packaging" / "icon.ico"
+ICON = PKG / "icon.ico"                                   # made by make_icon.py
 APK = IMU_LIVE / "android" / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
 
 

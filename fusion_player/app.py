@@ -1,7 +1,7 @@
 """Fusion Player: watch IMU navigation unfold, from recorded data or live from the phone.
 
 Start page, two ways in:
-  * Recorded data: a phone walk recording (.csv from IMU Stream or IMU Live) through the foot filter, or an NCLT robot
+  * Recorded data: a phone walk recording (.csv from IMU Stream or a live session) through the foot filter, or an NCLT robot
     dataset (sensor archive + ground truth) through the IMU / wheel / magnetometer filter. Computed once, then played
     back at its own pace (1x) or faster.
   * Live from the phone: the IMU Stream app's Wi-Fi stream through the foot filter, as the walker moves.
@@ -101,7 +101,7 @@ class OpenDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle("Open recorded data"); self.setMinimumWidth(640); self.store = settings_store
         v = QtWidgets.QVBoxLayout(self)
-        self.kind_walk = QtWidgets.QRadioButton("Phone walk recording (.csv from IMU Stream or IMU Live)")
+        self.kind_walk = QtWidgets.QRadioButton("Phone walk recording (.csv from IMU Stream or a live session)")
         self.kind_nclt = QtWidgets.QRadioButton("NCLT robot dataset (sensor archive + ground truth)")
         (self.kind_nclt if self.store.value("last_kind", "walk") == "nclt" else self.kind_walk).setChecked(True)
         v.addWidget(self.kind_walk); v.addWidget(self.kind_nclt)
@@ -109,7 +109,8 @@ class OpenDialog(QtWidgets.QDialog):
 
         pw = QtWidgets.QWidget(); fw = QtWidgets.QFormLayout(pw)
         self.walk = self._file_row(fw, "Recording", "Walk recordings (*.csv);;All files (*)", "last_walk")
-        note = QtWidgets.QLabel("The phone's own copy (Download/IMU Stream) or IMU Live's (Documents/IMU Live). The walk "
+        note = QtWidgets.QLabel("The phone's own copy (Download/IMU Stream) or the laptop's copy of a live session "
+                                "(Documents/IMU Live). The walk "
                                 "must start with the shoe still for 2 s. Long recordings take a minute or two the first "
                                 "time; after that they open from the cache.")
         note.setWordWrap(True); note.setStyleSheet("color:#5a6672"); fw.addRow(note)
@@ -171,7 +172,7 @@ class StartPage(QtWidgets.QWidget):
         s.setStyleSheet("color:#5a6672; font-size:15px"); v.addWidget(s, 0, QtCore.Qt.AlignHCenter); v.addSpacing(28)
         row = QtWidgets.QHBoxLayout(); row.addStretch(1)
         for title, text, fn in (
-                ("Recorded data", "Play back a phone walk (.csv from IMU Stream or IMU Live) or an NCLT robot dataset, "
+                ("Recorded data", "Play back a phone walk (.csv from IMU Stream or a live session) or an NCLT robot dataset, "
                                   "at real time or faster.", on_recorded),
                 ("Live from the phone", "Stream from the IMU Stream app over Wi-Fi and draw the walker's path as they "
                                         "move.", on_live)):
@@ -607,7 +608,7 @@ class Player(QtWidgets.QMainWindow):
             self.live_run = livemode.LiveRun(LIVE_PORT)
         except OSError as e:
             QtWidgets.QMessageBox.critical(self, "Cannot listen for the phone",
-                                           f"UDP port {LIVE_PORT} is busy ({e}). Close IMU Live or any other copy of "
+                                           f"UDP port {LIVE_PORT} is busy ({e}). Close any other copy of "
                                            "Fusion Player and try again."); return
         self.title.setText("Live from the phone"); self.transport.hide()
         self.tabs.blockSignals(True); self.tabs.clear(); self._live_tabs(); self.tabs.blockSignals(False)

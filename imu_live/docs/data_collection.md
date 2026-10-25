@@ -11,7 +11,7 @@ Make **one recording per walk**: press Start on the start corner and Stop when t
 
 ## 1. What to bring
 
-- An Android phone with **IMU Stream 1.1** installed (`ImuStream-1.1.apk`, next to this file). Don't use the older `ImuStream.apk`, which is 1.0.
+- An Android phone with **IMU Stream** installed (`ImuStream.apk` from the repo's Releases page, or built from `imu_live/android`).
 - Something that holds the phone rigidly on the shoe: a running armband, a velcro strap, or strong tape such as athletic tape or duct tape (section 4).
 - Masking tape or chalk to mark the two start corners.
 - A standard badminton court. The outer doubles lines are 13.40 × 6.10 m, so one lap is 39.0 m.
@@ -21,9 +21,9 @@ Make **one recording per walk**: press Start on the start corner and Stop when t
 
 ## 2. Install the app (once)
 
-1. Copy `ImuStream-1.1.apk` to the phone by USB, Drive or Quick Share.
+1. Copy `ImuStream.apk` to the phone by USB, Drive or Quick Share.
 2. Open it on the phone. If Android asks, allow "Install unknown apps" for the file manager.
-3. If 1.0 is already installed, this updates it.
+3. An older version, if installed, is updated.
 
 ## 3. Phone settings (check before every session)
 
@@ -41,7 +41,7 @@ In the app:
 
 After **Start**, the screen should show:
 - **RECORDING ON THE PHONE** (or **STREAMING + RECORDING** with the live link).
-- `accel ... Hz` and `gyro ... Hz`, both about **400 Hz**.
+- `accel ... Hz` and `gyro ... Hz`, both 200 Hz or more (about 250 Hz on a Galaxy M17, up to 400+ on others).
 - `saved: Download/IMU Stream/imu_YYYYMMDD_HHMMSS.csv`. Write this time in the log.
 - `events saved`, which keeps counting up.
 
@@ -127,7 +127,7 @@ At both corners you face the same way, along the long side:
 | STATIC | Optional noise recording | On a table | 20 min |
 
 **TEST:** Mount the phone and follow the routine (5 s still), walk around the room, then 5 s still, then Stop. Check three things:
-- The rate was about 400 Hz.
+- The rate was 200 Hz or more.
 - The screen showed an `accel range` line. Note the value: ±8 g or more is good.
 - The file is in `Download/IMU Stream`.
 
@@ -221,15 +221,15 @@ The laptop's copy is in `Documents\IMU Live`: one `<date_time>_<walk>.csv` per w
 ## 10. After the session
 
 1. Copy the phone's `Download/IMU Stream` folder to the laptop, by USB ("File transfer" mode), Quick Share or Drive.
-2. Put the files in `Transfinitte26'\imu_live\recordings\<date>_court\`, together with the log sheet. A photo of the sheet or a typed `log.txt` is fine.
+2. Put the files in `imu_live/recordings/<date>_court/`, together with the log sheet. A photo of the sheet or a typed `log.txt` is fine.
 3. For live-link sessions, leave `Documents\IMU Live` as it is.
-4. Tell me the folder. I'll check each recording first (rate, gaps, the still periods, the corner pauses), then tune on A1, B1, C, D and E, and test on A2 and B2.
+4. Score the walks with `scripts/court_eval.py` (see `imu_live/README.md`). It finds each walk's corners, scores them against the court and plots the tracks. To tune, use some walks (for example A1, B1, C, D and E) and keep others (A2, B2) for testing.
 
 ## 11. If something looks wrong
 
 | You see | Do |
 |---|---|
-| The rate is below 300 Hz | Check that Fastest is selected and close other apps. Tell me the number either way. |
+| The rate is below 200 Hz | Check that Fastest is selected and close other apps. The filter needs about 100 Hz at the very least. |
 | `accel range` is below ±8 g | Carry on, but tell me. Hard heel strikes may clip. |
 | An `error:` line in the app | Write it down. If `events saved` stops rising, stop and start again. |
 | The phone slipped or the strap loosened | Stop, re-mount, and redo the whole walk. Note it. |

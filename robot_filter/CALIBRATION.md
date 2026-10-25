@@ -30,15 +30,14 @@ its 2 s still period at boot and removes what is left of the bias.
 ## What you need
 
 - The ESP32 board with the MPU6050, connected by USB.
-- The raw-logging firmware: `firmware/bin/lograw/` (prebuilt), or `pio run -e lograw -t upload` from `firmware/`.
+- The raw-logging firmware: `pio run -e lograw -t upload` from `../firmware/`.
 - Python with `numpy`, `scipy` and `pyserial`.
 - A table. Nothing else.
 
 ## Steps
 
-1. **Flash the logging firmware.** From `firmware/` (in a folder path without an apostrophe):
-   `pio run -e lograw -t upload`. Or flash the prebuilt binaries with esptool: `bootloader.bin` at 0x1000,
-   `partitions.bin` at 0x8000, `firmware.bin` at 0x10000. In this mode the motors never run.
+1. **Flash the logging firmware.** From `../firmware/` (in a folder path without an apostrophe):
+   `pio run -e lograw -t upload`. In this mode the motors never run.
 2. **Let it warm up for about 5 minutes,** powered. MPU6050 biases move with temperature; calibrate near the
    temperature you will run at.
 3. **Start recording:** `python log_capture.py COM5 calib_log.csv --seconds 300` (use your port).
@@ -52,7 +51,7 @@ its 2 s still period at boot and removes what is left of the bias.
 7. **Run the calibration:** `python imu_calib.py calib_log.csv --counts`
    (add `--g 9.78` or your local gravity if you know it).
 8. **Check the report** against the acceptance values below. Repeat the recording if any check fails.
-9. **Install it:** copy the generated `calib.h` to `firmware/src/calib.h`, then build and flash the normal firmware
+9. **Install it:** copy the generated `calib.h` to `../firmware/src/calib.h`, then build and flash the normal firmware
    (`pio run -e esp32dev -t upload`).
 
 ### Acceptance values
@@ -126,5 +125,5 @@ otherwise skews every turn.
 | `log_capture.py` | Records the firmware's raw serial stream to CSV |
 | `calib_sim.py` | Synthetic calibration sessions and the parameter-recovery validation |
 | `nav_calib_check.py` | Navigation impact of calibration in the sim |
-| `firmware/src/calib.h` | Calibration constants used by the firmware (`IMU_CALIBRATED 0` until you install one) |
-| `main.c.txt` | Firmware: `imu_calibrate()` applies the constants; `LOG_RAW` build streams raw data |
+| `../firmware/src/calib.h` | Calibration constants used by the firmware (`IMU_CALIBRATED 0` until you install one) |
+| `../firmware/src/main.c` | Firmware: `imu_calibrate()` applies the constants; `LOG_RAW` build streams raw data |

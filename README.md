@@ -1,82 +1,159 @@
-# IMU + wheel-encoder + magnetometer fusion (2D)
+# IMU navigation: a phone on the shoe, tracked live on a laptop
 
-Files
-- fusion.h / fusion.c : portable filter (Madgwick tilt + 7-state EKF + ZUPT + gating). Same code runs on PC and ESP32.
-- replay.c            : run the filter on a CSV log.      gcc -O2 -o replay replay.c fusion.c -lm
-- sim.py / evaluate.py: synthetic runs with ground truth + ablation table.
-- main.c              : ESP32 (ESP-IDF v5) firmware. NOT compiled by me - build it and send me the errors.
+Position tracking from motion sensors alone (accelerometer and gyroscope), built for the Embien Transfinitte'26
+challenge.
 
-Quick start (PC)
-    python3 sim.py 6                 # makes run_0..5.csv + gt_0..5.csv
-    python3 evaluate.py 0 1 2        # TUNE on these
-    python3 evaluate.py 3 4 5        # TEST (report this, never tune on it)
+An Android phone strapped to a shoe streams its sensors to a laptop over Wi-Fi. The laptop app, **Fusion Player**,
+draws the walker's path as they walk. The filter cancels drift every time the foot is flat on the ground.
 
-Replay CSV: t, ax,ay,az (m/s^2), gx,gy,gz (rad/s), mx,my,mz, vL,vR (m/s). Body frame x fwd, y left, z up.
-No magnetometer: write nan in mx,my,mz.   Params: key=value on the command line (see replay.c header).
+On real walks around a badminton court (13.40 × 6.10 m), the estimated position was typically **0.5 m** from the
+truth after 100 to 200 m of walking. Every 50 m stretch stayed within **3 %** of the distance walked.
 
-State: [x, y, yaw, v, gyro-z bias, accel-fwd bias, wheel-scale mismatch]
-Updates: wheel speed -> v | (vR-vL)/b -> gyro bias + wheel mismatch | magnetometer -> yaw | ZUPT -> v, biases
-Every update is innovation-gated (|y| > gate*sqrt(S) => rejected, counted in n_rej) -> this is the slip / disturbance defence.
+The repo also holds a second filter, for a wheeled robot (IMU + wheel encoders + magnetometer), written in C for an
+ESP32. It is tested on the public NCLT robot dataset, which Fusion Player can play back too.
 
-## Build & run on Windows (no gcc needed)
-    pip install ziglang
-    python -m ziglang cc -O2 -o replay.exe replay.c fusion.c      (copy the .txt files to .c/.h first)
-    python sim.py 6 ; python evaluate.py 3 4 5 ; python plot.py 3          # sim, ablation table, 4-panel PNG
+## What's in the repo
 
-## Real data: NCLT (UMich) - sessions 2012-01-08 and 2012-02-04 (12.1 km, 171 min)
-    python nclt_convert.py nclt_data/2012-01-08 "Sample datasets/groundtruth_2012-01-08.csv" s0108   # -> s0108_run/_gt/_params/_meta
-    python final_report.py nclt_tuned.json s0108 s0204       # ablation table + result_<session>.png
-    python tune_multi.py out.json s0108,s0204 start=nclt_tuned.json      # re-tune (parallel coordinate descent)
-    python sweep.py nclt_tuned.json mag_ref_s 60,120,300                # sweep one parameter
-Run the scripts from the folder holding replay.exe and the converted CSVs (work/).
-- Converter: MS25 z points down (y,z flipped); still period auto-detected; track width + mag hard-iron offset fitted from
-  the sensor data (not GT); -nan GT rows dropped.
-- Evaluation: rigid (+mirror) alignment on the first 60 s of motion only, so later drift is not hidden.
-- Tuning: objective = RMSE over the first 40 min of each session; the rest is held out. Tuned settings: nclt_tuned.json.
+| Folder | What it is |
+|---|---|
+| [`fusion_player/`](fusion_player/) | **Fusion Player**, the Windows desktop app: live tracking from the phone, or playback of recordings and NCLT robot data. |
+| [`imu_live/`](imu_live/) | The **foot filter** (Python), the **IMU Stream** Android app (`android/`), tools to score and tune court walks, and the data-collection guide. |
+| [`robot_filter/`](robot_filter/) | The **wheeled-robot filter** (`fusion.c`, portable C) with its tools: simulation, NCLT conversion, tuning, tier scoring, IMU calibration. |
+| [`firmware/`](firmware/) | **ESP32 firmware** that runs the robot filter on the board (PlatformIO). |
 
-Results, full filter (wheel speed + ZUPT + magnetometer):
-| session    | RMSE  | first 40 min | after 40 (held out) | final error       |
-| 2012-01-08 | 10.8 m | 9.2 m       | 11.9 m              | 11.9 m (0.18 %)   |
-| 2012-02-04 | 20.2 m | 7.4 m       | 27.9 m              | 59.4 m (1.05 %)   |
-IMU only: 801-1304 m RMSE. Wheel speed only: 61-156 m RMSE.
+## Track a walk live, end to end
 
-What mattered on real data (all now in fusion.c / main.c):
-- Gate lock-out: a 3-sigma gate rejected every wheel update once v drifted -> gate_recover_s accepts after 1 s.
-- Magnetometer reference averaged over mag_ref_s = 250 s of driving (gyro carries yaw meanwhile) instead of the first
-  samples at the start spot: halved the error. Field-strength reference is averaged over the same window.
-- ZUPT: zupt_w = 0.005 rad/s or slow pivot turns are learnt as gyro bias; zupt_s in seconds (rate-independent).
-  On NCLT, ZUPT with these settings never fires at all (log: zupt 0/0) - it adds nothing there; the start-up
-  gyro bias comes from the still-period average instead.
-- Wheel yaw-rate vs gyro (enc_w) hurts on the Segway -> off. gate = 8 also means short wheel-slip bursts are no longer
-  rejected (sim: 399 -> 0 rejected); fine on NCLT, re-check on a robot that slips.
+You need a Windows laptop and an Android phone (accelerometer and gyroscope; most phones have both).
 
-## ZUPT position-jump fix (pos_consider)
-Found on set 1 (2012-01-15): one ZUPT update moved the position 1,290 m, because x,y are never measured and their
-covariance (and correlation with velocity) grows without bound. Fix: for sensors in the pos_consider bitmask the Kalman
-gain rows for x,y are zeroed (Schmidt "consider" states) and P is updated in Joseph form. Default = ZUPT only (bit 8).
-Chosen and validated on the training sessions + sim only (validate_consider.py); set 1 was NOT re-scored.
-- ZUPT forced to fire on training data: max position jump 127 m -> 0.38 m (01-08), 146 m -> 0.76 m (02-04).
-- Frozen settings: training results identical (ZUPT never fires there). Sim full filter unchanged.
-- Protecting wheel/mag updates too (pos_consider=15) also kills small jumps but loses the useful heading->position
-  coupling: full-filter RMSE 10.8 -> 14.2 m on 01-08, 0.22 -> 0.29 m on the sim. Not used.
-Still open: ZUPT learns gyro bias from short stops (noisy); without the magnetometer that still hurts.
+### 1. Install the two apps
 
-## ZUPT gyro-bias learning (zupt_bias_mode)
-Old: during a stop, one gyro-bias update per sample, each treated as independent noise - so a 2 s stop looked like a
-precise bias measurement, although a stopped robot's wobble is slow and correlated.
-New (default, mode 1): collect the stop's gyro rate and apply ONE update when the stop ends (or every zupt_bias_max_s = 30 s
-on a long stop), using the stop's mean rate with variance = spread/n + zupt_bias_floor^2 (3e-4 rad/s). Stops shorter than
-zupt_bias_min_s = 1 s are ignored, and the newest zupt_bias_lag_s = 0.5 s of each stop is dropped because the detector
-notices motion late. zb_mode=0 on the replay command line restores the old behaviour.
-Validated on the training sessions + sim only (validate_zb.py / validate_zb.log); set 1 was NOT re-scored. RMSE vs old:
-- Training sessions, frozen settings: identical (ZUPT never fires).
-- Training sessions, ZUPT forced to fire: 01-08 wheel+ZUPT 187 -> 189 m, full 29.2 -> 20.8 m;
-  02-04 wheel+ZUPT 515 -> 348 m, full 42.7 -> 15.2 m.
-- Sim, default drift (seeds 0-5): better or equal in all three configs (e.g. wheel+ZUPT 0.188 -> 0.149 m).
-- Sim with 5x gyro-bias drift (seeds 300-311): WORSE (wheel+ZUPT 0.316 -> 0.516 m): its stops are 1 s long and the
-  new method skips them, while the sim's white gyro noise makes short stops reliable. Real-data noise is not white.
-- Lag-only per-sample variant was tried and rejected (worse on real data).
+- **Laptop:** download `Fusion-Player-Setup-2.0.0.exe` from this repo's **Releases** page and run it.
+  - No admin rights are needed.
+  - Windows may warn about an unrecognised app, because the installer is not code-signed: click **More info**, then
+    **Run anyway**.
+  - To run from source instead, see [Run from source](#run-from-source).
+- **Phone:** download `ImuStream.apk` from **Releases**, copy it to the phone and open it.
+  - Allow "Install unknown apps" for your file manager when Android asks.
+  - To build it yourself, see [Build from source](#build-from-source).
 
-## IMU calibration (bias, scale, misalignment)
-See CALIBRATION.md: hand-held procedure (no equipment), imu_calib.py, log_capture.py, firmware LOG_RAW build env and
-calib.h. Validated on synthetic sessions (calib_sim.py) and for navigation impact in the sim (nav_calib_check.py).
+### 2. Connect the phone and laptop
+
+1. Turn on the phone's **Wi-Fi hotspot** and connect the laptop to it.
+   - Campus and office Wi-Fi often block phone-to-laptop traffic; a hotspot always works.
+2. The first time Fusion Player listens for the phone, Windows asks about the firewall. Allow **Private networks**.
+
+### 3. Strap the phone to the shoe
+
+- Strap it **tight on the shoe**, not the ankle: on top over the laces (easiest), or on the outer side below the ankle
+  bone. Use a running armband, a velcro strap or strong tape.
+- It must not wobble or touch the leg. The filter relies on the moment in every step when the shoe is flat and still;
+  the ankle never stops moving.
+- Any orientation works, as long as it stays the same during a walk.
+
+### 4. Start live tracking
+
+1. On the laptop, open **Fusion Player** and click **Live from the phone**. The side panel shows the laptop's address.
+2. On the phone, open **IMU Stream**:
+   - type that address under **Laptop IP**;
+   - choose **Fastest**;
+   - press **Start**.
+3. The phone shows **STREAMING + RECORDING**. The laptop shows **LINK OK** with the sample rate (about 250 Hz on a
+   typical phone).
+4. Keep IMU Stream open on screen while walking: Wi-Fi stays fastest with the screen on.
+
+### 5. Calibrate, then walk
+
+1. The walker stands **still**, with the phone on the shoe.
+2. Press **R** on the laptop (Recalibrate). The panel shows **CALIBRATING** and the shoe's motion.
+3. Once the shoe has stayed below the limit (0.02 rad/s) for 2 s, the panel turns green: **TRACKING**. Walk.
+4. The path starts at a dot. Once 3 m have been walked, it turns so that direction points up the screen. The dot is
+   orange while the foot swings and green when it is flat.
+
+| Key | Does |
+|---|---|
+| **R** | Recalibrate: the walker stands still, and a new path starts. |
+| **C** | Keep tracking, but make the current position the start. |
+| **N**, **M** | Data collection only: start the next labelled walk, or timestamp an event (see the guide). |
+
+### 6. Stop
+
+- Press **Stop** in IMU Stream, then **Stop live** in Fusion Player.
+- Both sides keep a recording:
+  - the phone's own complete copy is in `Download/IMU Stream`;
+  - the laptop's copy is in `Documents\IMU Live`.
+
+## Record without a laptop, play back later
+
+1. In IMU Stream, leave **Laptop IP** empty and press **Start**. The phone shows **RECORDING ON THE PHONE**.
+2. Stand still for about 5 s, walk, stand still again, then press **Stop**.
+3. Copy the file from the phone's `Download/IMU Stream` folder to the laptop (USB, Quick Share or Drive).
+4. In Fusion Player, choose **Recorded data**, then **Phone walk recording**, and pick the file.
+   - It is processed once; a 45-minute walk takes a few minutes the first time.
+   - After that it opens instantly from **Recent**.
+5. Press **Play**. **Speed** runs from real time up to 600×, and the slider jumps anywhere.
+
+The tabs show the path, heading, walking speed, live sensor traces and a summary. For walks on a marked court, the
+step-by-step protocol (start corner, pauses, laps) is in [`imu_live/docs/data_collection.md`](imu_live/docs/data_collection.md).
+
+## Play back the wheeled-robot data (NCLT)
+
+1. Download a session from the [NCLT dataset](https://robots.engin.umich.edu/nclt/): its sensor archive
+   (`<date>_sen.tar.gz`) and ground truth (`groundtruth_<date>.csv`). Use the files exactly as downloaded.
+2. In Fusion Player, choose **Recorded data**, then **NCLT robot dataset**, pick both files and press **Process**.
+3. Play. Four sensor combinations run side by side against the ground truth:
+   - IMU only;
+   - IMU + wheels;
+   - IMU + wheels + stop detection;
+   - the full filter with the magnetometer.
+
+## Results
+
+**Shoe-mounted phone, court walks of 25 Oct 2026** (Samsung Galaxy M17, 7 walks, 1,000 m in all):
+
+| | Result |
+|---|---|
+| Typical error at the court corners (median of 100) | 0.49 m |
+| Tier 1: error in the first 30 s | 0.15 to 0.84 m on every walk (target: under 1 m) |
+| Tier 2: 50 m stretches within 3 % of distance | 100 % of 69 stretches (median 0.6 %) |
+| Return to the start corner | 0.34 to 1.65 m after 107 to 195 m |
+
+Details, per-walk plots and the tuning record are in
+[`imu_live/results/court_20261025/`](imu_live/results/court_20261025/).
+
+**Wheeled-robot filter on NCLT** (4 sessions, 25.9 km in all): 12.5 to 26.6 m RMS error over runs of about 6 km
+each, against hundreds of metres to kilometres for the IMU alone. See [`robot_filter/`](robot_filter/).
+
+## Run from source
+
+Python 3.12 on Windows.
+
+```
+pip install -r fusion_player/requirements.txt
+pip install -r imu_live/requirements.txt
+python fusion_player/app.py              # or fusion_player/run.bat
+```
+
+`python fusion_player/app.py --live` goes straight to live mode, and `python fusion_player/app.py walk.csv` opens a
+recording.
+
+To try live mode without a phone, run `python imu_live/scripts/sim_phone.py` in a second terminal. It streams a
+synthetic walk to the laptop.
+
+## Build from source
+
+| What | How |
+|---|---|
+| Fusion Player installer | `python fusion_player/packaging/build_windows.py` (needs `pip install pyinstaller` and Inno Setup 6) |
+| IMU Stream APK | `cd imu_live/android` then `gradlew.bat assembleDebug` (needs the Android SDK); the APK lands in `app/build/outputs/apk/debug/` |
+| Robot filter (`replay.exe`) | `python -m ziglang cc -O2 -o replay.exe replay.c fusion.c` in `robot_filter/` (needs `pip install ziglang`) |
+| ESP32 firmware | `pio run -e esp32dev` in `firmware/` (needs PlatformIO; build from a folder path without an apostrophe) |
+
+Tests: `python -m pytest imu_live/tests` (47 tests).
+
+## Tools and data
+
+- **Libraries:** numpy, pandas, PySide6, pyqtgraph, matplotlib, scipy and pytest.
+- **Android app:** Kotlin, no libraries.
+- **Robot filter and firmware:** C (ESP-IDF on the ESP32).
+- **Data:** the NCLT dataset (University of Michigan), and our own court recordings.
+- Built with AI assistance (Claude Code).
