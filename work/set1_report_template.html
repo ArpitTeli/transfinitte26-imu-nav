@@ -1,0 +1,276 @@
+<title>Set 1 Navigation Test</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with wide figure/table blocks; instrument-panel neutrals, one signal red for the full filter */
+:root {
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --ink: #17202a;
+  --muted: #5a6672;
+  --rule: #d9dee3;
+  --accent: #1f5f8b;
+  --full: #c8394f;
+  --good: #2f7d4f;
+  --warn: #a86a10;
+  --bad: #b3263a;
+  --chip: #e8eef3;
+  --fig: #ffffff;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161b; --surface: #182029; --ink: #e4e9ee; --muted: #9aa6b2; --rule: #2a3542;
+    --accent: #6fb3e0; --full: #f07a8c; --good: #6cc391; --warn: #e0a64a; --bad: #f07a8c; --chip: #223040; --fig: #f4f6f8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161b; --surface: #182029; --ink: #e4e9ee; --muted: #9aa6b2; --rule: #2a3542;
+  --accent: #6fb3e0; --full: #f07a8c; --good: #6cc391; --warn: #e0a64a; --bad: #f07a8c; --chip: #223040; --fig: #f4f6f8;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 44px; }
+.col { max-width: 72ch; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.1rem; font-weight: 500; }
+p { margin: 0; }
+section { display: grid; gap: 16px; min-width: 0; }
+.eyebrow { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.12rem; color: var(--ink); max-width: 68ch; }
+.muted { color: var(--muted); }
+.mono, td.n, th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+header { display: grid; gap: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 28px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+.tile .v { font-family: var(--mono); font-size: 1.75rem; font-weight: 500; color: var(--full); font-variant-numeric: tabular-nums; }
+.tile .k { font-size: 0.85rem; color: var(--muted); }
+.verdict { background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--good); border-radius: 6px; padding: 16px 18px; display: grid; gap: 8px; }
+.tbl { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; background: var(--surface); }
+th.n, td.n { text-align: right; }
+tr:last-child td { border-bottom: 0; }
+tr.hl td { background: color-mix(in srgb, var(--full) 9%, transparent); }
+tr.hl td:first-child { box-shadow: inset 3px 0 0 var(--full); font-weight: 600; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+.pill.good { color: var(--good); } .pill.bad { color: var(--bad); } .pill.warn { color: var(--warn); }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figure .img { background: var(--fig); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; height: auto; max-width: 100%; }
+figcaption { font-size: 0.9rem; color: var(--muted); max-width: 80ch; }
+.figs2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 760px) { .figs2 { grid-template-columns: minmax(0, 1fr); } }
+.findings { display: grid; gap: 14px; }
+.finding { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 14px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px 14px 0; }
+.finding .bar { border-radius: 0 4px 4px 0; }
+.finding .bar.good { background: var(--good); } .finding .bar.bad { background: var(--bad); } .finding .bar.warn { background: var(--warn); } .finding .bar.info { background: var(--accent); }
+.finding .body { display: grid; gap: 6px; min-width: 0; }
+ul, ol { margin: 0; padding-left: 1.25em; display: grid; gap: 6px; }
+pre { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 0.84rem; line-height: 1.55; }
+dl.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 18px; margin: 0; font-size: 0.93rem; }
+dl.kv dt { font-family: var(--mono); color: var(--muted); }
+dl.kv dd { margin: 0; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Held-out test · IMU + wheel-encoder + magnetometer fusion</div>
+  <h1>Set 1 Navigation Test</h1>
+  <p class="lede">The fusion filter was run on NCLT session 2012-01-15 with every setting frozen at the values tuned on two other sessions. Nothing was tuned on this dataset. The full filter stayed within 64 m of ground truth over 7.6 km and ended 38 m off.</p>
+  <div class="meta">
+    <span>Session 2012-01-15 (UMich NCLT, Segway)</span>
+    <span>112 min · 7.58 km</span>
+    <span>Tuned on 2012-01-08 + 2012-02-04</span>
+    <span>Report date 2026-10-24</span>
+  </div>
+</header>
+
+<section>
+  <div class="tiles">
+    <div class="tile"><span class="v">33.1 m</span><span class="k">RMSE, full filter</span></div>
+    <div class="tile"><span class="v">63.9 m</span><span class="k">Max error (at 69.9 min)</span></div>
+    <div class="tile"><span class="v">37.8 m</span><span class="k">Final error after 7.58 km</span></div>
+    <div class="tile"><span class="v">0.50 %</span><span class="k">Final error / distance</span></div>
+  </div>
+  <div class="verdict">
+    <h3>Verdict</h3>
+    <p>The tuned filter generalises to an unseen session. Its set 1 error sits between the two training sessions on RMSE (10.8 m and 20.2 m there) and on drift per distance (0.18 % and 1.05 %). The test also exposed one real bug: a zero-velocity update can teleport the position by over a kilometre. In the full filter it caused only a single 6 m jump here, but it must be fixed before ZUPT is trusted.</p>
+  </div>
+</section>
+
+<section class="col">
+  <div class="eyebrow">Method</div>
+  <h2>How the test was run</h2>
+  <ul>
+    <li><strong>Frozen settings.</strong> All 13 filter settings came from <code>frozen_settings.json</code>, chosen by coordinate descent on the first 40 minutes of 2012-01-08 and 2012-02-04 only. No setting was changed after looking at set 1.</li>
+    <li><strong>Per-session self-calibration from sensor data only.</strong> The converter fits track width (gyro yaw rate vs wheel-speed difference) and the magnetometer hard-iron offset (sphere fit), and averages the gyro bias over the still start. It never reads ground truth. The same step ran on the training sessions. Set 1 gave a track width of 0.589 m (training: 0.587 m, 0.598 m).</li>
+    <li><strong>Wheel scale is frozen</strong> at 0.96, a value fitted against ground truth on the training sessions. It is not refitted for set 1.</li>
+    <li><strong>Alignment.</strong> The filter starts at (0, 0) facing yaw 0. A rigid transform (rotation, optional mirror, translation) is fitted on the first 60 s of motion only and applied to the whole run. Later drift is therefore fully counted. The "ATE best-fit" column re-fits over the whole run, for comparison with other papers.</li>
+    <li><strong>Error</strong> is the horizontal distance between the estimate and ground truth (NCLT's SLAM-derived pose), at every IMU sample (about 47 Hz, 320,000 samples).</li>
+  </ul>
+</section>
+
+<section>
+  <div class="eyebrow">Results · set 1</div>
+  <h2>Every sensor combination</h2>
+  <p class="col muted">Each row adds sensors to the one above, except the last two, which are references. "Untuned defaults" is the filter as it shipped before any real-data tuning.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Configuration</th><th class="n">RMSE m</th><th class="n">Median m</th><th class="n">95th pct m</th><th class="n">Max m</th><th class="n">Final m</th><th class="n">Final / dist</th><th class="n">ATE best-fit m</th><th class="n">Heading |err| median</th></tr></thead>
+      <tbody>
+        <tr><td>IMU only (gyro + accel)</td><td class="n">4,980</td><td class="n">1,953</td><td class="n">12,940</td><td class="n">17,388</td><td class="n">17,318</td><td class="n">228.5 %</td><td class="n">4,395</td><td class="n">80.8°</td></tr>
+        <tr><td>+ wheel speed</td><td class="n">228.4</td><td class="n">166.3</td><td class="n">396.0</td><td class="n">670.6</td><td class="n">669.5</td><td class="n">8.83 %</td><td class="n">124.9</td><td class="n">37.9°</td></tr>
+        <tr><td>+ ZUPT</td><td class="n">316.6</td><td class="n">273.9</td><td class="n">537.9</td><td class="n">1,252.8</td><td class="n">537.7</td><td class="n">7.09 %</td><td class="n">159.8</td><td class="n">53.0°</td></tr>
+        <tr class="hl"><td>+ magnetometer (full filter)</td><td class="n">33.1</td><td class="n">30.1</td><td class="n">52.3</td><td class="n">63.9</td><td class="n">37.8</td><td class="n">0.50 %</td><td class="n">15.8</td><td class="n">5.1°</td></tr>
+        <tr><td>Full + wheel yaw-rate <span class="pill">ref</span></td><td class="n">122.8</td><td class="n">37.1</td><td class="n">277.7</td><td class="n">600.3</td><td class="n">503.2</td><td class="n">6.64 %</td><td class="n">99.6</td><td class="n">9.9°</td></tr>
+        <tr><td>Untuned defaults (full) <span class="pill">ref</span></td><td class="n">119.0</td><td class="n">91.3</td><td class="n">245.4</td><td class="n">273.5</td><td class="n">196.8</td><td class="n">2.60 %</td><td class="n">83.1</td><td class="n">13.3°</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">Results · over time</div>
+  <h2>Error at fixed checkpoints</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Configuration</th><th class="n">5 min</th><th class="n">10 min</th><th class="n">30 min</th><th class="n">60 min</th><th class="n">90 min</th><th class="n">End (112 min)</th></tr></thead>
+      <tbody>
+        <tr><td>IMU only</td><td class="n">154.2</td><td class="n">403.3</td><td class="n">437.4</td><td class="n">1,770.6</td><td class="n">1,882.2</td><td class="n">17,317.7</td></tr>
+        <tr><td>+ wheel speed</td><td class="n">12.1</td><td class="n">45.0</td><td class="n">99.8</td><td class="n">149.7</td><td class="n">83.4</td><td class="n">669.5</td></tr>
+        <tr><td>+ ZUPT</td><td class="n">12.1</td><td class="n">45.0</td><td class="n">99.8</td><td class="n">324.3</td><td class="n">272.2</td><td class="n">537.7</td></tr>
+        <tr class="hl"><td>+ magnetometer (full)</td><td class="n">11.9</td><td class="n">14.7</td><td class="n">26.9</td><td class="n">25.8</td><td class="n">21.5</td><td class="n">37.8</td></tr>
+        <tr><td>Full + wheel yaw-rate</td><td class="n">3.1</td><td class="n">16.7</td><td class="n">34.1</td><td class="n">26.5</td><td class="n">65.2</td><td class="n">503.2</td></tr>
+        <tr><td>Untuned defaults (full)</td><td class="n">16.1</td><td class="n">49.0</td><td class="n">33.0</td><td class="n">93.1</td><td class="n">127.6</td><td class="n">196.8</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col muted">All values in metres. The full filter's error stops growing after about 30 minutes: the magnetometer bounds heading, so error no longer accumulates with distance the way it does with wheels alone.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Figures</div>
+  <h2>What the run looked like</h2>
+  <div class="figs2">
+    <figure>
+      <div class="img"><img src="{{IMG_TRAJ}}" alt="Map of the ground-truth path with the estimated paths from wheel speed only, untuned defaults and the full filter overlaid. The full filter follows the ground-truth streets closely; wheel-speed-only drifts to the south-east."></div>
+      <figcaption>Estimated vs ground-truth path. IMU-only is left out: it leaves the map within minutes. The full filter (red) keeps to the ground-truth streets; wheel speed alone (orange) rotates away as heading drifts.</figcaption>
+    </figure>
+    <figure>
+      <div class="img"><img src="{{IMG_CDF}}" alt="Cumulative distribution of position error for each configuration. The full filter's curve rises steeply between 10 and 60 metres."></div>
+      <figcaption>Error distribution. Read across at 0.5 for the median and 0.95 for the 95th percentile. The full filter's error never exceeds 64 m; every other configuration has a tail into the hundreds of metres.</figcaption>
+    </figure>
+  </div>
+  <figure>
+    <div class="img"><img src="{{IMG_ERR}}" alt="Position error against time on a log scale for all six configurations. IMU only climbs to about 17 km. The full filter stays between 10 and 60 m after the first 20 minutes. The ZUPT configuration shows a vertical spike to about 1.3 km at 37 minutes."></div>
+    <figcaption>Position error over time (log scale). The vertical spike in the ZUPT line at 37 minutes is the position-jump bug described below. The same bug moves the full filter by 6.1 m at 103 minutes.</figcaption>
+  </figure>
+  <figure>
+    <div class="img"><img src="{{IMG_HEAD}}" alt="Heading error of the full filter against time, clipped to plus or minus 30 degrees. It hovers mostly between 0 and plus 10 degrees, centred near plus 5, with brief spikes."></div>
+    <figcaption>Heading error of the full filter (direction of travel vs ground truth, moving segments only). The spikes are mostly sharp turns, where the direction of travel is poorly defined. The error is centred near +5°, not 0°.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="eyebrow">Generalisation</div>
+  <h2>Set 1 next to the training sessions</h2>
+  <p class="col muted">Full filter, same frozen settings everywhere. The training sessions' first 40 minutes were used to choose the settings; set 1 was not used at all.</p>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Session</th><th>Role</th><th class="n">Distance</th><th class="n">Duration</th><th class="n">RMSE m</th><th class="n">Max m</th><th class="n">Final m</th><th class="n">Final / dist</th></tr></thead>
+      <tbody>
+        <tr><td>2012-01-08</td><td><span class="pill">training</span></td><td class="n">6.50 km</td><td class="n">93 min</td><td class="n">10.8</td><td class="n">26.4</td><td class="n">11.9</td><td class="n">0.18 %</td></tr>
+        <tr><td>2012-02-04</td><td><span class="pill">training</span></td><td class="n">5.64 km</td><td class="n">78 min</td><td class="n">20.2</td><td class="n">73.2</td><td class="n">59.4</td><td class="n">1.05 %</td></tr>
+        <tr class="hl"><td>2012-01-15 (set 1)</td><td><span class="pill good">held out</span></td><td class="n">7.58 km</td><td class="n">112 min</td><td class="n">33.1</td><td class="n">63.9</td><td class="n">37.8</td><td class="n">0.50 %</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="col">RMSE on set 1 is higher than on either training session, as expected for unseen data and a longer run. Max error and drift per distance fall inside the training range.</p>
+</section>
+
+<section>
+  <div class="eyebrow">Findings</div>
+  <h2>What the test showed</h2>
+  <div class="findings">
+    <div class="finding"><div class="bar good"></div><div class="body">
+      <h3>The magnetometer is what makes it work</h3>
+      <p>Adding it cuts RMSE from 228 m to 33 m and the final error from 670 m to 38 m. It does this even though 69 % of magnetometer samples were rejected as disturbed (95,942 accepted, 212,239 rejected). The 4-minute averaged heading reference and the weak per-sample weight let the accepted samples correct heading slowly without following local disturbances.</p>
+    </div></div>
+    <div class="finding"><div class="bar bad"></div><div class="body">
+      <h3>Bug: a zero-velocity update can teleport the position</h3>
+      <p>At 37.0 minutes the robot stood still for about 2 s and ZUPT fired. A single update moved the estimated position by <strong>1,290 m</strong> (a normal step is 0.03 m). The cause: the filter never receives a position measurement, so the uncertainty of x and y, and their correlation with velocity, grows without limit over a long drive. A very confident "velocity is zero" update then shifts x and y through that correlation. The same 2 s window also set the gyro bias to +0.00044 rad/s from noise, which drifts heading by about 1.5° per minute without the magnetometer.</p>
+      <p>The full filter was hit too, but mildly: ZUPT fired 273 times in it, and the largest position step was 6.1 m at 103.3 minutes (it happened to reduce the error, from 55.9 m to 45.0 m). The magnetometer keeps heading, and so the correlations, much tighter. ZUPT never fired on the training sessions, which is why tuning did not catch it.</p>
+    </div></div>
+    <div class="finding"><div class="bar warn"></div><div class="body">
+      <h3>Heading carries a steady +5° offset</h3>
+      <p>The full filter's heading error is centred near +5° for most of the run (median absolute error 5.1°, 95th percentile 13.7°). A constant offset points to the magnetometer reference rather than to gyro drift, which would grow over time. Likely causes are a residual soft-iron error (only a hard-iron offset is calibrated) or a disturbed field during the 250 s reference window.</p>
+    </div></div>
+    <div class="finding"><div class="bar warn"></div><div class="body">
+      <h3>Wheel yaw-rate fusion still hurts</h3>
+      <p>Turning it on raises RMSE from 33 m to 123 m and the final error from 38 m to 503 m. This matches the training sessions, where it was switched off. Wheel slip and pivot turns on the Segway make (vR − vL) / track width an unreliable yaw-rate signal.</p>
+    </div></div>
+    <div class="finding"><div class="bar info"></div><div class="body">
+      <h3>Tuning was worth it</h3>
+      <p>The untuned filter scores 119 m RMSE and 197 m final error on set 1. The frozen tuned settings bring that to 33 m and 38 m, a 3.6× and 5.2× improvement on data that played no part in choosing them.</p>
+    </div></div>
+    <div class="finding"><div class="bar info"></div><div class="body">
+      <h3>IMU alone is not a position sensor</h3>
+      <p>Double-integrating the accelerometer drifts to 17 km over 112 minutes. The IMU's job in this filter is heading (gyro) and tilt; position comes from the wheels.</p>
+    </div></div>
+  </div>
+</section>
+
+<section class="col">
+  <div class="eyebrow">Next steps</div>
+  <h2>Recommended fixes (not applied)</h2>
+  <p>These were found on set 1, so applying them and re-scoring set 1 would no longer be a clean test. Validate them on the training sessions and the simulator, then test on a new held-out session.</p>
+  <ol>
+    <li><strong>Stop ZUPT and wheel updates from moving x and y.</strong> Treat position as a "consider" state in those updates (zero its rows of the Kalman gain). Position should only change through integration.</li>
+    <li><strong>Require a longer still window before ZUPT learns gyro bias,</strong> or learn it from the average over the whole still period instead of per sample.</li>
+    <li><strong>Calibrate the magnetometer's soft-iron error</strong> (ellipsoid fit, not just a sphere) to attack the +5° heading offset.</li>
+    <li><strong>Test on more sessions.</strong> Three sessions from one campus and one robot is a narrow base. A session from a different season or a different robot would show how far the settings carry.</li>
+  </ol>
+</section>
+
+<section class="col">
+  <div class="eyebrow">Reference</div>
+  <h2>Settings and reproduction</h2>
+  <h3>Frozen filter settings</h3>
+  <dl class="kv">
+    <dt>Sensors</dt><dd>wheel speed on, magnetometer on, ZUPT on, wheel yaw-rate off</dd>
+    <dt>Gating</dt><dd>gate 8σ, wheel recovery after 1 s of rejection, wheel speed noise 0.06 m/s, wheel scale 0.96</dd>
+    <dt>ZUPT</dt><dd>wheels &lt; 0.03 m/s, yaw rate &lt; 0.005 rad/s, for 8.4 s</dd>
+    <dt>Magnetometer</dt><dd>reference averaged over 250 s, noise 7.0 rad per sample, field-strength tol 15 %, dip tol 0.07, step tol 0.6 rad</dd>
+    <dt>Process</dt><dd>gyro-bias walk 3e-5, Madgwick beta 0.01</dd>
+  </dl>
+  <h3>Set 1 self-calibration (sensor data only)</h3>
+  <dl class="kv">
+    <dt>Still period</dt><dd>first 38.4 s (1,833 samples); first motion at 40.4 s</dd>
+    <dt>Track width</dt><dd>0.589 m</dd>
+    <dt>Mag offset</dt><dd>(−0.0028, −0.0292, −0.3731) gauss</dd>
+  </dl>
+  <h3>Commands (run in <code>work/</code>)</h3>
+<pre>python nclt_convert.py ../nclt_data/2012-01-15 "../Sample datasets/set 1/groundtruth_2012-01-15.csv" s0115
+python test_set1.py          # frozen_settings.json -> test_set1.json + test_set1_*.png</pre>
+</section>
+
+</div>

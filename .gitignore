@@ -1,0 +1,29 @@
+# Data: NCLT sessions (large, under their own licence), phone recordings and converted runs
+Sample datasets/
+nclt_data/
+imu_live/recordings/
+work/*.csv
+*.tar.gz
+*.npz
+
+# Build output and binaries (rebuildable: see each folder's README)
+imu_live/build/
+imu_live/android/.gradle/
+imu_live/android/app/build/
+imu_live/android/local.properties
+firmware/.pio/
+firmware/bin/
+*.apk
+*.exe
+*.dll
+*.elf
+*.pdb
+*.ilk
+*.obj
+
+# Caches and run output
+__pycache__/
+.pytest_cache/
+fusion_player/cache/
+imu_live/results/live/
+*.log

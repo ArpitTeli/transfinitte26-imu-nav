@@ -1,0 +1,18 @@
+
+s0108: 6.50 km, 93 min
+  config                    RMSE m  first40  after40  final m  %dist
+  IMU only                  1304.4    667.5   1627.8   4223.6  65.00
+  + wheel speed               61.3     45.3     71.1    194.9   3.00
+  + ZUPT                      61.3     45.3     71.1    194.9   3.00
+  + magnetometer (full)       10.8      9.2     11.9     11.9   0.18
+  gating (full): accepted/rejected  enc_v 267593/2385  enc_w 0/0  mag 99109/158887  zupt 0/0
+
+s0204: 5.64 km, 78 min
+  config                    RMSE m  first40  after40  final m  %dist
+  IMU only                   801.0    805.5    796.1   1815.4  32.17
+  + wheel speed              156.1     57.4    216.2    620.2  10.99
+  + ZUPT                     156.1     57.4    216.2    620.2  10.99
+  + magnetometer (full)       20.2      7.4     27.9     59.4   1.05
+  gating (full): accepted/rejected  enc_v 221570/2420  enc_w 0/0  mag 86137/126008  zupt 0/0
+
+saved result_s0108.png, result_s0204.png

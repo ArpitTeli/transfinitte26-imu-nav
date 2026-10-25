@@ -1,0 +1,14 @@
+__pycache__/
+.pytest_cache/
+data/
+*.zip
+
+# Android build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+results/live/
+build/
+build_log.txt
+packaging/icon.png

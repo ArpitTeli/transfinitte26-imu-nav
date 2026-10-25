@@ -1,0 +1,21 @@
+{
+ "settings": {
+  "zupt_acc_var_thr": 2.0,
+  "sigma_zupt": 0.3,
+  "sigma_g": 0.0015,
+  "sigma_zaru": 0.001
+ },
+ "frozen_at": "2026-10-25T06:15:31",
+ "tuned_on": [
+  "A1",
+  "B1",
+  "C",
+  "D",
+  "E"
+ ],
+ "held_out": [
+  "A2",
+  "B2"
+ ],
+ "note": "minimal set from court_tune.py search + refine + ablate; leave-one-walk-out: 3.94 -> 0.81 m"
+}

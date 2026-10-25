@@ -1,0 +1,16 @@
+{
+  "imu_layout": {
+    "t": "time_ms",
+    "gyro": ["gx", "gy", "gz"],
+    "acc": ["ax", "ay", "az"],
+    "time_scale": 0.001
+  },
+  "gt_layout": {
+    "t": "time_ms",
+    "p": ["x", "y", "z"],
+    "q": ["qw", "qx", "qy", "qz"]
+  },
+  "gyro_scale": 0.017453292519943295,
+  "acc_scale": 9.80665,
+  "fs_expected": 200.0
+}

@@ -1,0 +1,12 @@
+  A1 left out: tuned on B1 C D E -> {"zupt_acc_var_thr": 2.0, "sigma_zupt": 0.3, "sigma_g": 0.0015, "sigma_zaru": 0.001}
+      A1 RMS corner error: untuned 4.20 m -> 0.44 m (stretches within 3 %: 33 % -> 100 %)
+  B1 left out: tuned on A1 C D E -> {"sigma_zupt": 0.3, "sigma_g": 0.0015, "sigma_zaru": 0.001, "zupt_acc_var_thr": 4.0}
+      B1 RMS corner error: untuned 4.10 m -> 1.05 m (stretches within 3 %: 17 % -> 100 %)
+  C left out: tuned on A1 B1 D E -> {"zupt_acc_var_thr": 4.0, "sigma_zupt": 0.3, "sigma_g": 0.004, "sigma_zaru": 0.001}
+      C RMS corner error: untuned 8.06 m -> 0.58 m (stretches within 3 %: 14 % -> 100 %)
+  D left out: tuned on A1 B1 C E -> {"zupt_acc_var_thr": 4.0, "sigma_zupt": 0.3, "sigma_g": 0.0015, "sigma_zaru": 0.001}
+      D RMS corner error: untuned 1.79 m -> 1.55 m (stretches within 3 %: 71 % -> 100 %)
+  E left out: tuned on A1 B1 C D -> {"zupt_acc_var_thr": 4.0, "sigma_zupt": 0.3, "sigma_g": 0.0015, "sigma_zaru": 0.001}
+      E RMS corner error: untuned 3.80 m -> 0.84 m (stretches within 3 %: 0 % -> 100 %)
+
+left-out walks, geometric mean RMS corner error: untuned 3.94 m -> tuned without them 0.81 m

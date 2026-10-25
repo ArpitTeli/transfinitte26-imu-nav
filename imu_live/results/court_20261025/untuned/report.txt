@@ -1,0 +1,29 @@
+A1: walked anticlockwise (left turns), first leg 13.4 m, 20 turns found, 20 matched to corners
+A2: walked anticlockwise (left turns), first leg 13.4 m, 16 turns found, 16 matched to corners
+B1: walked clockwise (right turns), first leg 6.1 m, 16 turns found, 16 matched to corners
+B2: walked clockwise (right turns), first leg 6.1 m, 16 turns found, 16 matched to corners
+C: walked anticlockwise (left turns), first leg 13.4 m, 13 turns found, 12 matched to corners
+D: walked anticlockwise (left turns), first leg 13.4 m, 12 turns found, 12 matched to corners
+E: walked there and back, first leg 13.4 m, 8 turns found, 8 matched to corners
+
+walk  laps walk s true m  est m  Tier1 m (line/corner)  Tier2 from start   return to start  worst corner
+A1       5    256    195    254     0.52   0.51/ 0.52        3.9 % @52 m   4.13 m   2.1 %       9.93 m
+A2       4    209    156    172     0.54   0.53/ 0.54        0.6 % @52 m   1.87 m   1.2 %       2.84 m
+B1       4    240    156    180     0.81   0.81/ 0.70        0.8 % @58 m   2.54 m   1.6 %       9.23 m
+B2       4    275    156    193     0.92   0.92/ 0.40        3.8 % @58 m   1.99 m   1.3 %       4.56 m
+C        3    271    117    146     0.16   0.16/ 0.00       17.9 % @52 m  10.86 m   9.3 %      10.86 m
+D        3    130    117    128     0.76   0.76/ 0.76        2.6 % @52 m   2.12 m   1.8 %       2.81 m
+E        8    143    107    133     0.66   0.66/ 0.52        3.9 % @54 m   8.23 m   7.7 %       8.23 m
+
+50 m stretches restarted at every corner (true position, heading from the leg just walked): 69 stretches, median 3.9 %, 90th pct 13.7 %, worst 17.9 %, within 3 %: 33 %
+   A1: 15 stretches, median   5.0 %, worst  17.8 %, within 3 %:  33 %
+   A2: 11 stretches, median   0.7 %, worst   3.9 %, within 3 %:  64 %
+   B1: 12 stretches, median   5.3 %, worst  13.8 %, within 3 %:  17 %
+   B2: 12 stretches, median   4.4 %, worst   9.7 %, within 3 %:  25 %
+   C: 7 stretches, median  15.8 %, worst  17.9 %, within 3 %:  14 %
+   D: 7 stretches, median   2.9 %, worst   3.6 %, within 3 %:  71 %
+   E: 5 stretches, median   6.9 %, worst  11.6 %, within 3 %:   0 %
+
+Net effect, lap walks, per leg (the turn at its start plus the leg itself):
+   long sides (cross the net): 46 legs, heading error picked up: mean |4.6| deg, 90th pct 10.2 deg; length error mean |4.4| %
+   short sides (no net):       46 legs, heading error picked up: mean |4.4| deg, 90th pct 10.1 deg; length error mean |6.0| %
