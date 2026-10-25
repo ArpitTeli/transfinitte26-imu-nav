@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from imunav.live.recording import COLS, filled_stretches, load_recording  # noqa: E402
+from imunav.live.recording import COLS, MAG_COLS, filled_stretches, load_recording  # noqa: E402
 
 
 def _noisy(n, fs=400.0, seed=0):
@@ -45,10 +45,17 @@ def test_phone_recording_is_aligned(tmp_path):
         ns = 10**12 + int(t[k] * 1e9)
         lines.append(f"1,{ns},{X[k, 3]},{X[k, 4]},{X[k, 5]}")
         lines.append(f"2,{ns + 700_000},{X[k, 0]},{X[k, 1]},{X[k, 2]}")
+        if k >= 1000 and k % 8 == 0:          # the magnetometer starts halfway, at 50 Hz
+            lines.append(f"3,{ns + 300_000},{k},-5.0,-40.0")
     (tmp_path / "phone.csv").write_text("\n".join(lines) + "\n")
     df, info = load_recording(tmp_path / "phone.csv")
     assert info["format"] == "phone" and info["meta"]["device"] == "test"
-    assert list(df.columns) == COLS + ["gap"]
+    assert list(df.columns) == COLS + ["gap"] + MAG_COLS
+    tp = df.t - 1000.0                         # phone clock: 10**12 ns = 1000 s
+    assert info["has_mag"] and df.mx[tp < t[1000]].isna().all()
+    late = df[tp > t[1500]]
+    k = (late.t - 1000.0) / (t[1] - t[0])      # the sample index at each row: mx is the newest reading's index
+    assert np.all((late.mx <= k + 1) & (late.mx >= k - 9))
     assert info["n_gaps"] == 1 and info["gap_time"] == pytest.approx(0.5, abs=0.01)
     assert np.median(np.diff(df.t)) == pytest.approx(1 / 400, rel=1e-6)
 

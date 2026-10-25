@@ -72,7 +72,7 @@ def test_one_file_per_walk_with_markers(tmp_path):
     assert any(n.endswith("_free.csv") for n in names)
     assert any(n.endswith("_A1.csv") for n in names) and any(n.endswith("_A2.csv") for n in names)
     a1 = pd.read_csv(next(f for f in files if f.name.endswith("_A1.csv")))
-    assert list(a1.columns) == ["t", "gx", "gy", "gz", "ax", "ay", "az", "gap"]
+    assert list(a1.columns) == ["t", "gx", "gy", "gz", "ax", "ay", "az", "gap", "mx", "my", "mz"]
     assert a1.t.min() >= 1000.9 and len(a1) > 300          # A1 holds A1's data, not the free part
     m = pd.read_csv(next(f for f in files if f.name.endswith("_A1_markers.csv")))
     assert m.walk.tolist() == ["A1"] and m.note.tolist() == ["tripped at corner 2"]

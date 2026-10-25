@@ -6,7 +6,9 @@ microcontroller. run_sequence() is only a driver loop around it.
 Modes
   madgwick | mahony | ekf : orientation filter + strapdown (+ ZUPT velocity reset)
   ins                      : 15-state EKF with ZUPT / ZARU / gravity updates
-Aiding sources used: none (IMU + zero-velocity updates only).
+Aiding sources used: zero-velocity updates, and the compass (magnetometer) when the phone sends it and it has
+been calibrated: at every stance its heading pulls the filter's heading back towards where magnetic north was at
+the start, so heading drift stays bounded on long walks (ins mode only; compass.py).
 """
 import warnings
 from dataclasses import dataclass, field, replace
@@ -14,6 +16,7 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 
 from .calib import static_calibration
+from .compass import dip_of, disturbed, mag_heading_h, north_angle, wrap
 from .ins import TH_, V_, InsEKF, Strapdown
 from .orientation import FILTERS
 from .quat import q_from_gravity, qexp, qmul, qnormalize, quat_to_R, yaw_of
@@ -63,6 +66,12 @@ class Config:
     # is needed before the filter restarts at the new stance
     max_gap: float = 0.05
     restart_s: float = 0.1
+    # compass heading updates at stance (only with magnetometer data and a calibration)
+    use_mag: bool = True
+    sigma_mag: float = 0.05    # rad per update (chosen on synthetic walks with 1-3 % gyro gain error; check on real walks)
+    mag_period: float = 0.1    # s between compass updates while still
+    turn_sigma: float = 0.05   # with a compass: the gyro's turn rate may be this far off (gain), so turns add heading
+                               # uncertainty and the compass can take their error out
     # initialisation
     init_window: float = 2.0
     calibrate: bool = True
@@ -103,6 +112,12 @@ class Navigator:
         self._every = max(1, int(round(cfg.zupt_period * cfg.fs)))
         self._force_n = max(1, int(round(cfg.force_after / cfg.zupt_period)))
         self._streak = 0
+        self._mag_every = max(1, int(round(cfg.mag_period * cfg.fs)))
+        self.compass = None            # CompassCal, set by set_compass()
+        self.north = None              # (world angle of magnetic north, dip) the heading is held to
+        self.compass_psi = None        # newest trusted north angle (rad), from the last stance
+        self.compass_disturbed = False
+        self.n_mag_disturbed = 0
         if cfg.mode == "ins":
             self.ins = InsEKF(q0, p0, v0, gyro_bias, g=gravity, sigma_g=cfg.sigma_g, sigma_a=cfg.sigma_a,
                               sigma_bg=cfg.sigma_bg, sigma_ba=cfg.sigma_ba, q_scale=cfg.q_scale,
@@ -113,7 +128,13 @@ class Navigator:
             self.orient = FILTERS[cfg.mode](q0, g=gravity, acc_gate=cfg.acc_gate, **kw)
             self.strap = Strapdown(p0, v0, gravity)
 
-    def step(self, gyro, acc, dt):
+    def set_compass(self, cal, north=None):
+        """Use the compass with calibration `cal`. `north` = (angle, dip) to hold the heading to; None: taken at
+        the next stance (wherever north is then, i.e. the current heading is taken as right)."""
+        self.compass, self.north = cal, north
+
+    def step(self, gyro, acc, dt, mag=None):
+        """mag: the newest raw magnetometer reading (uT), or None"""
         cfg = self.cfg
         if self._wait_stance:
             self._step_waiting(gyro, acc, dt)
@@ -127,7 +148,7 @@ class Navigator:
         self.still = self.det.update(gyro_d, acc_d, up)
         if cfg.mode == "ins":
             e = self.ins
-            e.predict(gyro, acc, dt)
+            e.predict(gyro, acc, dt, cfg.turn_sigma if self.compass is not None and cfg.use_mag else 0.0)
             self._k += 1
             if self.still and cfg.zupt and self._k % self._every == 0:
                 if cfg.use_gravity:
@@ -138,11 +159,30 @@ class Navigator:
                     self._recover_if_diverged(acc)
                 if cfg.use_zaru and np.linalg.norm(gyro_d) < cfg.zaru_gyro_thr:
                     e.zaru(gyro, cfg.sigma_zaru)
+            if (self.still and mag is not None and self.compass is not None and cfg.use_mag
+                    and self._k % self._mag_every == 0):
+                self._compass_update(mag)
         else:
             q_prev = self.orient.q
             self.orient.update(gyro - self.bias, acc, dt, use_acc=self.still or cfg.acc_always)
             q_mid = qnormalize(q_prev + self.orient.q)
             self.strap.step(q_mid, acc, dt, self.still and cfg.zupt)
+
+    def _compass_update(self, mag):
+        m = self.compass.apply(mag)
+        if not np.all(np.isfinite(m)):
+            return
+        psi, H_th, u = mag_heading_h(self.ins.q, m)
+        dip_ref = self.north[1] if self.north else None
+        self.compass_disturbed = disturbed(u, self.compass.field, dip_ref)
+        if self.compass_disturbed:
+            self.n_mag_disturbed += 1
+            return
+        self.compass_psi = psi
+        if self.north is None:
+            self.north = (psi, dip_of(u))
+            return
+        self.ins.heading(wrap(self.north[0] - psi), H_th, self.cfg.sigma_mag)
 
     def gap(self, dur):
         """`dur` seconds of data were lost: the motion in between is unknown and is not integrated.
@@ -239,13 +279,37 @@ class Result:
     n_rejected: dict = field(default_factory=dict)
 
 
-def navigator_from_static(t, gyro, acc, cfg, yaw0=0.0, p0=None, v0=None):
-    """Calibrate on the first cfg.init_window seconds (platform still) and build a Navigator."""
+def navigator_from_static(t, gyro, acc, cfg, yaw0=0.0, p0=None, v0=None, mag=None, compass=None, north=None):
+    """Calibrate on the first cfg.init_window seconds (platform still) and build a Navigator.
+
+    mag (n x 3 raw magnetometer readings over the same samples, NaN where there is none) with compass (a
+    CompassCal): the heading is held to magnetic north from then on. north = (angle, dip) from an earlier
+    calibration, when recalibrating mid-walk: the heading is then taken from the compass instead of yaw0, which
+    undoes the drift so far (cal["compass_yaw"] says it was). Without a usable compass reading yaw0 stands."""
     cal = static_calibration(t, gyro, acc, cfg.init_window)
     bias = cal["gyro_bias"] if cfg.calibrate else np.zeros(3)
     q0 = q_from_gravity(cal["acc_mean"], yaw0)
+    cal["compass_yaw"] = None
+    if compass is not None and mag is not None:
+        mm = np.asarray(mag, float)[(t - t[0]) < cfg.init_window]
+        mm = mm[np.all(np.isfinite(mm), axis=1)]
+        if len(mm):
+            m = compass.apply(mm.mean(0))
+            if north is not None:
+                psi0, u = north_angle(q_from_gravity(cal["acc_mean"], 0.0), m)
+                if not disturbed(u, compass.field, north[1]):
+                    yaw0 = wrap(north[0] - psi0)
+                    q0 = q_from_gravity(cal["acc_mean"], yaw0)
+                    cal["compass_yaw"] = yaw0
+            else:
+                psi, u = north_angle(q0, m)
+                if not disturbed(u, compass.field):
+                    north = (psi, dip_of(u))
     p0 = np.zeros(3) if p0 is None else p0
-    return Navigator(cfg, bias, cal["gravity"], q0, p0, v0), cal
+    nav = Navigator(cfg, bias, cal["gravity"], q0, p0, v0)
+    if compass is not None:
+        nav.set_compass(compass, north)
+    return nav, cal
 
 
 def make_navigator(seq, cfg):

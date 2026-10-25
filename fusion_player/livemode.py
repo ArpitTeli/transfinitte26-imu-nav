@@ -4,7 +4,8 @@ are imu_live's (imunav.live)."""
 import collections, time
 from pathlib import Path
 import numpy as np
-import foot  # noqa: F401  (puts imu_live on sys.path)
+import foot  # (also puts imu_live on sys.path)
+from imunav.compass import CompassCal
 from imunav.live.pathlink import PathSender
 from imunav.live.receiver import Receiver, local_ip
 from imunav.live.session import Session
@@ -20,12 +21,12 @@ OUT_DIR = Path.home() / "Documents" / "IMU Live"
 class StripTracker(LiveTracker):
     """LiveTracker that also keeps the last STRIP_S seconds of |gyro| (deg/s), |accel| (m/s^2) and foot-flat"""
 
-    def __init__(self, cfg):
-        super().__init__(cfg)
+    def __init__(self, cfg, compass=None):
+        super().__init__(cfg, compass=compass)
         self.strip = collections.deque(maxlen=int(STRIP_S * FS))
 
-    def add(self, t, gyro, acc, gap=0.0):
-        super().add(t, gyro, acc, gap)
+    def add(self, t, gyro, acc, gap=0.0, mag=None):
+        super().add(t, gyro, acc, gap, mag)
         with self.lock:
             flat = self.state == TRACKING and self._still_last
             self.strip.append((t, np.degrees(np.linalg.norm(gyro)), float(np.linalg.norm(acc)), float(flat)))
@@ -37,11 +38,13 @@ class StripTracker(LiveTracker):
 
 class LiveRun:
     """One live session: listens on `port`, tracks, records every sample to OUT_DIR, sends the path back to the
-    phone. Raises OSError if the port is taken."""
+    phone. The compass calibration is loaded from, and a new one saved to, foot.COMPASS_FILE.
+    Raises OSError if the port is taken."""
 
     def __init__(self, port=5555):
         self.port = port
-        self.tracker = StripTracker(PRESETS["shoe"])
+        self._saved_compass = CompassCal.load(foot.COMPASS_FILE)
+        self.tracker = StripTracker(PRESETS["shoe"], compass=self._saved_compass)
         self.rx = Receiver(self.tracker, port, FS)
         self.session = Session(self.rx, self.tracker, OUT_DIR)
         self.sender = PathSender(self.rx, self.tracker)
@@ -66,4 +69,12 @@ class LiveRun:
         s["rate"], s["lost"] = self.rx.acc_rate, self.rx.lost
         s["file"], s["rows"] = Path(self.session.path).name, self.rx.rec_rows
         s["sent"] = self.sender.sent                # path packets sent back to the phone
+        cal = self.tracker.compass_cal
+        if cal is not None and cal is not self._saved_compass:   # just calibrated: keep it for next time
+            try:
+                cal.save(foot.COMPASS_FILE)
+            except OSError:
+                pass
+            self._saved_compass = cal
+        s["compass_cal"] = cal
         return s

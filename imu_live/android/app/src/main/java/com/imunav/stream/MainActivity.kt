@@ -164,7 +164,7 @@ class MainActivity : Activity() {
         for (i in 0 until rates.childCount) rates.getChildAt(i).isEnabled = !on
         status.text = buildString {
             append(if (!on) "stopped\n" else if (StreamService.streaming) "STREAMING + RECORDING\n" else "RECORDING ON THE PHONE\n")
-            append("accel %.0f Hz   gyro %.0f Hz\n".format(Locale.US, StreamService.accHz, StreamService.gyroHz))
+            append("accel %.0f Hz   gyro %.0f Hz   mag %.0f Hz\n".format(Locale.US, StreamService.accHz, StreamService.gyroHz, StreamService.magHz))
             if (StreamService.streaming) append("packets sent ${StreamService.packets}   path packets back ${StreamService.pathPackets}\n")
             if (StreamService.recordingName.isNotEmpty()) {
                 append("saved: ${StreamService.recordingName}\n")

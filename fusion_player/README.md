@@ -44,13 +44,20 @@ Court walks are scored against the court with `imu_live/scripts/court_eval.py`.
 1. Turn on the phone's hotspot and connect the laptop to it.
 2. Click **Live from the phone** (Ctrl+L). The side panel shows the address to type into IMU Stream (port 5555).
 3. In IMU Stream: that address, **Fastest**, **Start**. The panel shows **LINK OK** with the rate. The path is sent
-   back to the phone, which draws the same graph under its controls (IMU Stream 1.2 or later).
-4. Strap the phone to the shoe; the walker stands still. Press **R** to calibrate there. The panel shows the shoe's
-   motion against the limit; after 2 s still it switches from **CALIBRATING** to **TRACKING**: go.
+   back to the phone, which draws the same graph and compass under its controls (IMU Stream 1.3 or later).
+4. **Calibrate compass** (once per phone, on open ground): click it, turn the phone in your hand over and around in a
+   figure-8 until the panel says **CALIBRATED**. It is saved for next time (`%LOCALAPPDATA%\Fusion Player\compass.json`).
+5. Strap the phone to the shoe; the walker stands still. After a compass calibration tracking starts by itself,
+   otherwise press **R**. The panel shows the shoe's motion against the limit; after 2 s still it switches from
+   **CALIBRATING** to **TRACKING**: go.
 
-Keys: **R** recalibrate (new path), **C** make the current position the start, **N** next labelled walk and **M** marker
+With a calibrated compass the filter pulls its heading back towards north at every step, so long walks stop
+turning. The panel shows the compass heading (where the top of the phone points) next to the filter's, on a dial.
+
+Keys: **K** recalibrate and keep the path (stand still 2 s; heading from the compass, or face the start direction
+without one), **R** new path, **C** make the current position the start, **N** next labelled walk and **M** marker
 (data collection). **Stop live** returns to the start page. Every live session is recorded to `Documents/IMU Live`,
-and the phone keeps its own complete copy.
+compass readings included, and the phone keeps its own complete copy.
 
 ## How it works
 
@@ -59,7 +66,8 @@ and the phone keeps its own complete copy.
   estimate to ground truth and resamples onto a 10 Hz timeline. `filter/replay.exe` is built from the same `fusion.c`
   as the ESP32 firmware: `python -m ziglang cc -O2 -o filter/replay.exe filter/replay.c filter/fusion.c`
 - `foot.py` (phone walks): loads the recording with `imu_live`'s loader, calibrates on the first still 2 s, runs the
-  foot filter (`imunav`, shoe preset) and builds a 20 Hz timeline.
+  foot filter (`imunav`, shoe preset; with the saved compass calibration when the recording has compass readings)
+  and builds a 20 Hz timeline.
 - `livemode.py` (live): `imu_live`'s receiver, tracker, recording session and path sender (`imunav.live`). The
   sender sends the path back to the phone ten times a second, over the same UDP link.
 

@@ -2,6 +2,8 @@
 a playback timeline shaped like engine.process's NCLT timeline, but with no ground truth.
 
 The filter is imu_live's imunav: the same code and shoe preset as live mode. Results are cached in cache/.
+Recordings with magnetometer readings use the compass too, with the calibration saved by live mode's Calibrate
+compass (COMPASS_FILE), so the heading is held to magnetic north as it was live.
 """
 import os, sys, json, hashlib
 import numpy as np
@@ -11,14 +13,17 @@ IMU_LIVE = os.path.join(HERE, "..", "imu_live")
 if IMU_LIVE not in sys.path:
     sys.path.insert(0, IMU_LIVE)
 from imunav.calib import static_calibration  # noqa: E402
-from imunav.live.recording import load_recording  # noqa: E402
+from imunav.compass import CompassCal  # noqa: E402
+from imunav.live.recording import MAG_COLS, load_recording  # noqa: E402
 from imunav.live.session import ALIGN_M  # noqa: E402
 from imunav.pipeline import PRESETS, navigator_from_static  # noqa: E402
 from imunav.quat import yaw_of  # noqa: E402
 import engine  # noqa: E402
 
 FS = 20.0                 # playback timeline rate (Hz): a step lasts about 1 s
-VERSION = 1               # bump when processing changes, so cached results are recomputed
+VERSION = 2               # bump when processing changes, so cached results are recomputed
+# the phone's compass calibration, made in live mode; kept per user, so the installed app and a source checkout share it
+COMPASS_FILE = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Fusion Player", "compass.json")
 SPEED_WIN = 2.0           # walking speed = foot speed averaged over this many seconds
 
 
@@ -26,10 +31,12 @@ def _log(cb, msg):
     if cb: cb(msg)
 
 
-def cache_key(path, cfg):
+def cache_key(path, cfg, compass=None):
     st = os.stat(path); h = hashlib.sha1()
     h.update(f"{os.path.abspath(path)}|{st.st_size}|{int(st.st_mtime)}|walk{VERSION}".encode())
     h.update(repr(sorted(vars(cfg).items())).encode())
+    if compass is not None:
+        h.update(json.dumps(compass.to_dict(), sort_keys=True).encode())
     return "walk_" + h.hexdigest()[:16]
 
 
@@ -47,8 +54,9 @@ def find_still(t, G, A, gap, win):
 
 def process(path, cb=None, use_cache=True):
     cfg = PRESETS["shoe"]
+    compass = CompassCal.load(COMPASS_FILE)
     os.makedirs(engine.CACHE, exist_ok=True)
-    cf = os.path.join(engine.CACHE, cache_key(path, cfg) + ".npz")
+    cf = os.path.join(engine.CACHE, cache_key(path, cfg, compass) + ".npz")
     if use_cache and os.path.exists(cf):
         _log(cb, "Loading from cache")
         return engine.load(cf)
@@ -57,11 +65,16 @@ def process(path, cb=None, use_cache=True):
     df, info = load_recording(path)
     t = df.t.to_numpy(); gap = df.gap.to_numpy()
     G = df[["gx", "gy", "gz"]].to_numpy(); A = df[["ax", "ay", "az"]].to_numpy()
+    if not info["has_mag"]:
+        compass = None                                   # recorded before the phone sent its compass
+    M = df[MAG_COLS].to_numpy() if compass is not None else None
+    has_m = np.all(np.isfinite(M), axis=1) if M is not None else None
     if len(t) < 1000:
         raise ValueError(f"{os.path.basename(path)} holds only {len(t)} samples.")
     i0, i1 = find_still(t, G, A, gap, cfg.init_window)
     cfg = cfg.with_(fs=1.0 / float(np.median(np.diff(t[i0:i1]))))
-    nav, cal = navigator_from_static(t[i0:i1], G[i0:i1], A[i0:i1], cfg)
+    nav, cal = navigator_from_static(t[i0:i1], G[i0:i1], A[i0:i1], cfg,
+                                     mag=M[i0:i1] if M is not None else None, compass=compass)
 
     n = len(t) - i1
     P = np.zeros((n, 2)); V = np.zeros(n); Y = np.zeros(n); S = np.zeros(n, bool)
@@ -69,7 +82,7 @@ def process(path, cb=None, use_cache=True):
         if gap[j] > 0:
             nav.gap(gap[j])
         else:
-            nav.step(G[j], A[j], t[j] - t[j - 1])
+            nav.step(G[j], A[j], t[j] - t[j - 1], M[j] if M is not None and has_m[j] else None)
         P[m], V[m], Y[m], S[m] = nav.p[:2], np.hypot(nav.v[0], nav.v[1]), yaw_of(nav.q), nav.still
         if m % 20000 == 0:
             _log(cb, f"Running the foot filter: {100 * m / n:.0f} %")
@@ -117,6 +130,10 @@ def process(path, cb=None, use_cache=True):
                            gyro_bias=np.asarray(cal["gyro_bias"]).tolist(), gravity=float(cal["gravity"]),
                            rate=float(cfg.fs)),
                 gaps=dict(n=info["n_gaps"], seconds=info["gap_time"], longest=info["longest_gap"]),
+                compass=dict(used=compass is not None, has_mag=info["has_mag"],
+                             calibrated=compass.when if compass is not None else None,
+                             updates=nav.ins.n_updates.get("mag", 0), rejected=nav.ins.n_rejected.get("mag", 0),
+                             disturbed=nav.n_mag_disturbed),
                 rejected=dict(nav.ins.n_rejected))
     np.savez_compressed(cf, meta=json.dumps(meta), **out)
     return engine.load(cf)

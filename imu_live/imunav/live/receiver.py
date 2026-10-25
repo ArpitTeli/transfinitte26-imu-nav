@@ -1,10 +1,13 @@
 """UDP receiver thread: decode packets, align streams, feed the tracker, record to CSV."""
+import collections
 import socket
 import threading
 import time
 
 from .align import StreamAligner
-from .protocol import ACC, decode
+from .protocol import ACC, MAG, decode
+
+MAG_STALE = 0.25          # s: an older magnetometer reading is not attached to a sample
 
 
 def local_ip():
@@ -32,6 +35,7 @@ class Receiver(threading.Thread):
         self._rec_lock = threading.Lock()
         self.rec, self.record_path, self.rec_rows = None, None, 0
         self._newest = None                      # newest phone time received (s), before alignment
+        self._mag = collections.deque()          # (t, xyz) magnetometer readings not yet passed by the samples
         self._rec_after = None                   # a new file skips samples up to here (they belong to the last one)
         self.set_record(record_path)
         self.last_t = None                       # phone time (s) of the newest aligned sample
@@ -74,12 +78,21 @@ class Receiver(threading.Thread):
         b = self.aligner.buf
         for typ, t_ns, x, y, z in records:
             t = t_ns * 1e-9
+            if typ == MAG:                       # not aligned: the filter takes the newest reading at stance
+                if self._mag and t < self._mag[-1][0] - 1.0:
+                    self._mag.clear()            # phone app restarted
+                self._mag.append((t, (x, y, z)))
+                self.tracker.add_mag(t, (x, y, z))
+                continue
+            if typ not in b:
+                continue
             last = b[typ][-1][0] if b[typ] else None
             if last is not None and t < last - 1.0:  # phone app restarted: timestamps went back
                 self.aligner = StreamAligner(self.fs)
                 self.tracker.reset()
                 b = self.aligner.buf
                 self._newest = self._rec_after = None
+                self._mag.clear()
             self.aligner.push(typ, t, (x, y, z))
             if self._newest is None or t > self._newest:
                 self._newest = t
@@ -90,7 +103,8 @@ class Receiver(threading.Thread):
             self.acc_rate = self._acc_count / (now - self._rate_t0)
             self._acc_count, self._rate_t0 = 0, now
         for t, g, a, gap in self.aligner.pop_ready_gaps():
-            self.tracker.add(t, g, a, gap)
+            m = self._mag_at(t)
+            self.tracker.add(t, g, a, gap, m)
             self.last_t = t
             with self._rec_lock:
                 if self._rec_after is not None:
@@ -98,8 +112,19 @@ class Receiver(threading.Thread):
                         continue                 # held back by the aligner from before the file switch
                     self._rec_after = None
                 if self.rec:
-                    self.rec.write(f"{t:.6f},{g[0]:.6f},{g[1]:.6f},{g[2]:.6f},{a[0]:.5f},{a[1]:.5f},{a[2]:.5f},{gap:.4f}\n")
+                    mag = f",{m[0]:.3f},{m[1]:.3f},{m[2]:.3f}" if m is not None else ",,,"
+                    self.rec.write(f"{t:.6f},{g[0]:.6f},{g[1]:.6f},{g[2]:.6f},{a[0]:.5f},{a[1]:.5f},{a[2]:.5f},{gap:.4f}"
+                                   f"{mag}\n")
                     self.rec_rows += 1
+
+    def _mag_at(self, t):
+        """the newest magnetometer reading at or before t, if it is recent"""
+        q = self._mag
+        while len(q) >= 2 and q[1][0] <= t:
+            q.popleft()
+        if q and q[0][0] <= t and t - q[0][0] < MAG_STALE:
+            return q[0][1]
+        return None
 
     def set_record(self, path):
         """Close the current recording (if any) and continue into `path` (None = stop recording).
@@ -111,7 +136,9 @@ class Receiver(threading.Thread):
             self.record_path, self.rec_rows = path, 0
             self._rec_after = self._newest           # the new file starts after everything received so far
             if self.rec:
-                self.rec.write("t,gx,gy,gz,ax,ay,az,gap\n")   # gap: seconds of data missing before this row
+                # gap: seconds of data missing before this row; mx, my, mz: the newest raw magnetometer reading (uT),
+                # empty when the phone sends none
+                self.rec.write("t,gx,gy,gz,ax,ay,az,gap,mx,my,mz\n")
 
     def send(self, data):
         """Send a packet back to the phone, from the port it streams to (so it needs no setting of its own)."""

@@ -1,11 +1,13 @@
-"""Load a recording into one table: t, gx, gy, gz, ax, ay, az, gap (s of data missing before the row).
+"""Load a recording into one table: t, gx, gy, gz, ax, ay, az, gap (s of data missing before the row), and
+mx, my, mz: the newest raw magnetometer reading at that row (uT; NaN when there is none).
 
 Three formats are accepted:
-  * laptop recording, new:  t,gx,gy,gz,ax,ay,az,gap   (written by Receiver)
+  * laptop recording, new:  t,gx,gy,gz,ax,ay,az,gap[,mx,my,mz]   (written by Receiver)
   * laptop recording, old:  t,gx,gy,gz,ax,ay,az       (before gap marking: lost packets were filled with
                             straight lines; those stretches are found and turned back into gaps)
   * phone recording:        '#' header lines, then type,t_ns,x,y,z  (raw events saved by IMU Stream itself;
-                            nothing is lost to Wi-Fi). Aligned onto the same grid as the live path.
+                            nothing is lost to Wi-Fi; type 3 = magnetometer). Aligned onto the same grid as the
+                            live path, each row with the newest magnetometer reading, as live.
 """
 import os
 
@@ -15,6 +17,8 @@ import pandas as pd
 from .align import StreamAligner
 
 COLS = ["t", "gx", "gy", "gz", "ax", "ay", "az"]
+MAG_COLS = ["mx", "my", "mz"]
+MAG_STALE = 0.25          # s, as live (receiver.py)
 
 
 def filled_stretches(X, tol=1e-4, min_len=8):
@@ -50,13 +54,23 @@ def _from_phone(path, fs, max_gap):
                 if "=" in kv:
                     k, v = kv.split("=", 1); meta[k.strip()] = v.strip()
     ev = pd.read_csv(path, skiprows=n_hdr).to_numpy(float)
+    is_mag = ev[:, 0] == 3
+    mag = ev[is_mag]
+    mag = mag[np.argsort(mag[:, 1], kind="stable")]
     al = StreamAligner(fs, max_gap)
     rows = []
-    for typ, t_ns, x, y, z in ev:
+    for typ, t_ns, x, y, z in ev[~is_mag]:
         al.push(int(typ), t_ns * 1e-9, (x, y, z))
     for t, g, a, gap in al.pop_ready_gaps():
         rows.append((t, *g, *a, gap))
     out = pd.DataFrame(rows, columns=COLS + ["gap"])
+    out[MAG_COLS] = np.nan
+    if len(mag) and len(out):
+        tm = mag[:, 1] * 1e-9
+        t = out.t.to_numpy()
+        i = np.searchsorted(tm, t, side="right") - 1
+        ok = (i >= 0) & (t - tm[np.clip(i, 0, None)] < MAG_STALE)
+        out.loc[ok, MAG_COLS] = mag[i[ok], 2:5]
     out.attrs["meta"] = meta
     return out
 
@@ -80,11 +94,14 @@ def load_recording(path, fs=400.0, max_gap=0.05):
             raise ValueError(f"{name} is not an IMU recording. It needs the columns {', '.join(COLS)} (IMU Live) or "
                              f"type,t_ns,x,y,z (IMU Stream); its columns are {', '.join(map(str, df.columns[:8]))}.")
         if "gap" in df.columns:
-            df, fmt = df[COLS + ["gap"]].copy(), "laptop"
+            df, fmt = df[COLS + ["gap"] + [c for c in MAG_COLS if c in df.columns]].copy(), "laptop"
         else:
             df, fmt = _from_old(df), "laptop (old, gaps recovered)"
+        for c in MAG_COLS:
+            if c not in df.columns:
+                df[c] = np.nan
     g = df.gap.to_numpy()
-    info = dict(format=fmt, duration=float(df.t.iloc[-1] - df.t.iloc[0]) if len(df) else 0.0,
+    info = dict(format=fmt, has_mag=bool(np.isfinite(df[MAG_COLS].to_numpy()).any()), duration=float(df.t.iloc[-1] - df.t.iloc[0]) if len(df) else 0.0,
                 n_gaps=int((g > 0).sum()), gap_time=float(g.sum()), longest_gap=float(g.max()) if len(g) else 0.0,
                 meta=df.attrs.get("meta", {}))
     return df, info

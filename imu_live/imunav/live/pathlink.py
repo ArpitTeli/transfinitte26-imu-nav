@@ -8,9 +8,10 @@ import math
 import threading
 import time
 
-from .protocol import CALIBRATING_STATE, FLAG_STILL, MAX_POINTS, TRACKING_STATE, encode_path
+from .protocol import (CALIBRATING_STATE, FLAG_STILL, MAX_POINTS, RECALIBRATING_STATE, TRACKING_STATE,
+                       encode_path)
 from .session import ALIGN_M
-from .tracker import TRACKING
+from .tracker import RECALIBRATING, TRACKING
 
 SPACING = 0.1          # m between the path points sent to the phone
 SPEED_S = 3.0          # walking speed = distance over the last few seconds, as on the laptop
@@ -91,7 +92,10 @@ class PathSender(threading.Thread):
             return                    # the phone is not streaming
         tracking = st["state"] == TRACKING
         n = len(self.raw)
-        head = dict(gen=self.gen, state=TRACKING_STATE if tracking else CALIBRATING_STATE,
+        c = st["compass"]
+        state = {TRACKING: TRACKING_STATE, RECALIBRATING: RECALIBRATING_STATE}.get(st["state"], CALIBRATING_STATE)
+        head = dict(gen=self.gen, state=state, compass=c["heading"] if c["heading"] is not None else float("nan"),
+                    compass_state=c["state"],
                     flags=FLAG_STILL if tracking and st["still"] else 0, steps=st["steps"],
                     distance=st["distance"], speed=speed, motion=st["motion"][0] if st["motion"] else -1.0,
                     cur=self.view([self._cur])[0] if self._cur else (0.0, 0.0), n_total=n)

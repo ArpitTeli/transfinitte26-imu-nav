@@ -51,7 +51,8 @@ import java.util.Locale
  *
  * Wire format (little-endian), must match imunav/live/protocol.py:
  *   "IMU1" | uint32 seq | uint16 count | count x [uint8 type, int64 t_ns, float32 x, y, z]
- *   type 1 = accelerometer (m/s^2, gravity included), 2 = gyroscope (rad/s, uncalibrated)
+ *   type 1 = accelerometer (m/s^2, gravity included), 2 = gyroscope (rad/s, uncalibrated),
+ *   3 = magnetometer (uT, uncalibrated: Fusion Player calibrates it, ~50 Hz)
  * The laptop sends the live path back to the port the samples come from; a listening thread hands those packets
  * to LivePath for the screen to draw.
  * Recording format (read by imunav/live/recording.py): '#' header lines, then  type,t_ns,x,y,z
@@ -68,12 +69,14 @@ class StreamService : Service(), SensorEventListener {
         private const val RECORD = 21
         private const val FLUSH_MS = 20L
         private const val REC_DIR = "IMU Stream"
+        private const val MAG_PERIOD_US = 20_000          // 50 Hz is plenty for a heading
 
         // Read by MainActivity for the status line.
         @Volatile var running = false
         @Volatile var streaming = false
         @Volatile var accHz = 0.0
         @Volatile var gyroHz = 0.0
+        @Volatile var magHz = 0.0
         @Volatile var packets = 0L
         @Volatile var gyroKind = ""
         @Volatile var error: String? = null
@@ -102,6 +105,7 @@ class StreamService : Service(), SensorEventListener {
     private var seq = 0
     private var accN = 0
     private var gyroN = 0
+    private var magN = 0
     private var rateT0 = 0L
 
     private val flusher = object : Runnable {
@@ -147,6 +151,9 @@ class StreamService : Service(), SensorEventListener {
                 return@post
             }
             gyroKind = if (gyro.type == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) "uncalibrated" else "calibrated"
+            // the compass: raw readings, so the phone's own magnetism is calibrated out on the laptop (optional)
+            val mag = sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED)
+                ?: sensors.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
             accelRangeG = acc.maximumRange / SensorManager.GRAVITY_EARTH.toDouble()
             if (streaming) {
                 try {
@@ -158,7 +165,7 @@ class StreamService : Service(), SensorEventListener {
                 }
             }
             try {
-                openRecording(acc, gyro, periodUs)
+                openRecording(acc, gyro, mag, periodUs)
             } catch (e: Exception) {
                 error = "cannot save on the phone: ${e.message}"
                 if (!streaming) { stopSelf(); return@post }    // nothing to do without a file or a laptop
@@ -168,6 +175,7 @@ class StreamService : Service(), SensorEventListener {
             rateT0 = SystemClock.elapsedRealtime()
             sensors.registerListener(this, acc, periodUs, h)
             sensors.registerListener(this, gyro, periodUs, h)
+            if (mag != null) sensors.registerListener(this, mag, MAG_PERIOD_US, h)
             h.postDelayed(flusher, FLUSH_MS)
         }
         return START_NOT_STICKY
@@ -198,7 +206,7 @@ class StreamService : Service(), SensorEventListener {
         wifiLock = wm.createWifiLock(mode, "imustream:wifi").apply { setReferenceCounted(false); acquire() }
     }
 
-    private fun openRecording(acc: Sensor, gyro: Sensor, periodUs: Int) {
+    private fun openRecording(acc: Sensor, gyro: Sensor, mag: Sensor?, periodUs: Int) {
         val name = "imu_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".csv"
         val out: OutputStream
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -224,6 +232,8 @@ class StreamService : Service(), SensorEventListener {
         w.write("# IMU Stream recording v1; device=${clean(Build.MANUFACTURER + " " + Build.MODEL)}; android=${Build.VERSION.SDK_INT}" +
                 "; accel=${clean(acc.name)}; accel_range=${acc.maximumRange}; accel_resolution=${acc.resolution}" +
                 "; gyro=${clean(gyro.name)}; gyro_kind=$gyroKind; gyro_range=${gyro.maximumRange}; gyro_resolution=${gyro.resolution}" +
+                "; mag=${clean(mag?.name ?: "none")}" +
+                "; mag_kind=${if (mag?.type == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) "uncalibrated" else if (mag != null) "calibrated" else "none"}" +
                 "; period_us=$periodUs\n")
         w.write("type,t_ns,x,y,z\n")
         rec = w
@@ -243,6 +253,8 @@ class StreamService : Service(), SensorEventListener {
     override fun onSensorChanged(e: SensorEvent) {
         val type = when (e.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> { accN++; 1 }
+            // uncalibrated magnetometer: values[0..2] are the raw field, hard iron included
+            Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED, Sensor.TYPE_MAGNETIC_FIELD -> { magN++; 3 }
             else -> { gyroN++; 2 }  // uncalibrated gyro: values[0..2] are the raw rates
         }
         rec?.let { w ->
@@ -298,8 +310,10 @@ class StreamService : Service(), SensorEventListener {
         if (dt >= 1.0) {
             accHz = accN / dt
             gyroHz = gyroN / dt
+            magHz = magN / dt
             accN = 0
             gyroN = 0
+            magN = 0
             rateT0 = now
         }
     }
@@ -343,6 +357,7 @@ class StreamService : Service(), SensorEventListener {
         wifiLock?.let { if (it.isHeld) it.release() }
         accHz = 0.0
         gyroHz = 0.0
+        magHz = 0.0
         super.onDestroy()
     }
 }

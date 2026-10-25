@@ -17,7 +17,7 @@ This folder holds the pieces behind shoe-mounted tracking:
 | `imunav/live/` | The live link: packet formats (`protocol.py`), the UDP receiver, lining up the two sensor streams, the live tracker, sending the path back to the phone (`pathlink.py`), labelled recording sessions, and loading recordings. |
 | `android/` | **IMU Stream** (Kotlin, no libraries). |
 | `scripts/` | Tools, listed below. |
-| `tests/` | 49 tests: `python -m pytest tests`. |
+| `tests/` | 57 tests: `python -m pytest tests`. |
 | `docs/data_collection.md` | How to record court walks: mounting, the walking routine, the walk list and a log sheet. |
 | `docs/calibration_procedure.md` | Sensor calibration options for the foot filter: static bias, six-position, gyro scale, Allan variance. |
 | `results/court_20261025/` | The court session: tracks and scores before tuning (`untuned`), after tuning on 5 walks (`tuned`) and the final settings (`final`), plus the tuning logs. |
@@ -35,6 +35,8 @@ This folder holds the pieces behind shoe-mounted tracking:
 4. **While the foot is flat:**
    - **Zero velocity:** the speed is set to zero, which cancels the drift built up during the step.
    - **Zero rotation:** the gyro bias is re-learned.
+   - **Compass** (when the phone sends it and it has been calibrated): the heading is pulled back towards where
+     magnetic north was at the start. Readings that are the wrong strength or dip (metal nearby) are skipped.
 5. **Safety checks.** Every correction is tested against what the filter expects. Outliers are rejected, and a
    diverged filter re-opens and recovers.
 6. **Data gaps.** When Wi-Fi drops packets, nothing is integrated across the hole. The filter restarts at the next
@@ -47,7 +49,19 @@ The `shoe` preset was tuned on the seven court walks of 25 Oct 2026. Two things 
 The changes and the tuning record are in the preset's comment in `imunav/pipeline.py` and in
 `results/court_20261025/`.
 
-The phone cannot tell where north is, so heading drifts slowly. That is the main limit on accuracy.
+Without the compass the phone cannot tell where north is, so heading drifts slowly, mostly at turns. That is the
+main limit on accuracy, and what the compass removes.
+
+**The compass** (`imunav/compass.py`):
+- **Calibration:** the phone is turned through every orientation (a figure-8); an ellipsoid fit gives the phone's own
+  magnetism (offset) and per-axis gains. It is done when at least 20 of 26 directions are covered, the fitted field
+  strength varies by under 3 % and the field is believable (20–80 µT).
+- **Heading:** the calibrated reading is turned into the world frame with the filter's tilt, at stance only. While
+  the compass is in use, turns add heading uncertainty (`turn_sigma`, a gyro gain error of up to 5 %), so the
+  compass can take turn errors out. On synthetic walks with a 3 % gyro turn error it cut the heading error from 12°
+  to about 1°. The weights (`sigma_mag`, `turn_sigma` in `pipeline.py`) are still to be checked on real walks.
+- **Recalibrate, keep path** (K, `LiveTracker.recalibrate_keep`): after 2 s still the filter starts afresh where it
+  stands; the heading comes from the compass, or, without one, is the start direction.
 
 ## Tools
 
@@ -80,8 +94,9 @@ Recordings are not in the repository. Put your own in `recordings/` (ignored by 
 - Reads the accelerometer and the raw (uncalibrated) gyroscope as fast as the phone allows.
 - Saves everything to `Download/IMU Stream/imu_<date>_<time>.csv` on the phone.
 - With a laptop address, it also streams over UDP (port 5555).
+- Also sends the magnetometer (50 Hz, raw), which Fusion Player calibrates and uses as a compass.
 - While streaming, it draws the live path that Fusion Player sends back: the same path the laptop shows, with the
-  state (calibrating or tracking), steps, distance and walking speed.
+  state (calibrating, tracking or recalibrating), steps, distance, walking speed and a compass dial.
 - Holds a Wi-Fi lock and keeps the screen on while recording.
 
 The data flow: phone sensors → laptop (foot filter, laptop graph) → path packets back to the phone → phone graph.
@@ -90,10 +105,11 @@ The data flow: phone sensors → laptop (foot filter, laptop graph) → path pac
 
 ```
 phone -> laptop:  "IMU1" | uint32 seq | uint16 count | count × [uint8 type, int64 t_ns, float32 x, y, z]
-                  type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s)
-laptop -> phone:  "PTH1" | uint16 generation | uint8 state | uint8 flags | uint32 steps |
+                  type 1 = accelerometer (m/s², gravity included), 2 = gyroscope (rad/s), 3 = magnetometer (µT)
+laptop -> phone:  "PTH2" | uint16 generation | uint8 state | uint8 flags | uint32 steps |
                   float32 distance, speed, motion, current x, current y |
-                  uint32 points in the path | uint32 first point here | uint16 count | count × [float32 x, y]
+                  uint32 points in the path | uint32 first point here | uint16 count |
+                  float32 compass heading | uint8 compass state | count × [float32 x, y]
 ```
 
 The path packets go back to the address and port the phone streams from, so the phone needs no extra setting. The
@@ -103,9 +119,9 @@ path turned to point up after 3 m) tells the phone to drop what it has.
 
 **The phone's own file:**
 - starts with `#` header lines (phone model, sensor names and ranges);
-- then has rows of `type,t_ns,x,y,z`.
+- then has rows of `type,t_ns,x,y,z` (type 3 = magnetometer).
 
-`imunav.live.recording.load_recording` reads it, and the laptop's CSVs too.
+`imunav.live.recording.load_recording` reads it, and the laptop's CSVs too (`t,gx,gy,gz,ax,ay,az,gap,mx,my,mz`).
 
 **Build:** `cd android`, then `gradlew.bat assembleDebug`. The APK is in `app/build/outputs/apk/debug/`. If the
 build fails with "Unable to delete directory" inside a OneDrive folder, OneDrive is locking build files: build a copy

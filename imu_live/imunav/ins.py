@@ -76,7 +76,9 @@ class InsEKF:
         self.n_rejected = {}
         self.n_forced = {}
 
-    def predict(self, gyro, acc, dt):
+    def predict(self, gyro, acc, dt, turn_sigma=0.0):
+        """turn_sigma: fractional uncertainty of the gyro's turn rate about the vertical (a gain error). It only
+        grows the heading uncertainty, so a heading reference (the compass) can take the turn error out again."""
         w = gyro - self.bg
         f = acc - self.ba
         q_mid = qnormalize(qmul(self.q, qexp(w * dt / 2)))
@@ -93,6 +95,10 @@ class InsEKF:
         F[TH_, BG_] = -np.eye(3)
         Phi = np.eye(15) + F * dt + 0.5 * (F @ F) * dt * dt
         self.P = Phi @ self.P @ Phi.T + self.Qd * dt
+        if turn_sigma > 0:
+            up = Rm[2, :]                       # world vertical in the body frame
+            s = turn_sigma * float(up @ w) * dt
+            self.P[TH_, TH_] += s * s * np.outer(up, up)
 
     def update(self, y, H, R, tag):
         """Generic gated measurement update. y = z - h(x_nominal)."""
@@ -140,6 +146,12 @@ class InsEKF:
         H = np.zeros((3, 15))
         H[:, BG_] = np.eye(3)
         return self.update(gyro - self.bg, H, np.eye(3) * sigma ** 2, "zaru")
+
+    def heading(self, y, H_th, sigma):
+        """Compass heading: innovation y (rad) with Jacobian H_th on the attitude error (compass.mag_heading_h)."""
+        H = np.zeros((1, 15))
+        H[0, TH_] = H_th
+        return self.update(np.array([y]), H, np.array([[sigma ** 2]]), "mag")
 
     def gravity(self, acc, sigma=0.05):
         """When still, specific force = ba + g * R^T e_z: observes tilt and accel bias."""

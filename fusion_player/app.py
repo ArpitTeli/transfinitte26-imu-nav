@@ -15,7 +15,8 @@ import engine
 import foot
 import livemode
 from imunav.live.session import heading_up
-from imunav.live.tracker import TRACKING
+from imunav.live.tracker import (COMPASS_CALIBRATING, COMPASS_DISTURBED, COMPASS_NONE, COMPASS_OK, RECALIBRATING,
+                                 TRACKING)
 
 pg.setConfigOptions(antialias=False, background="w", foreground="#30363d")
 LINE_W, GT_W = 1, 1      # wide pens are slow to draw in Qt's software renderer
@@ -71,6 +72,33 @@ def fit_view(p, xy, min_half=3.0):
     """square view around the points with a margin; never smaller than min_half metres each side of centre"""
     lo, hi = xy.min(0), xy.max(0); cx, cy = (lo + hi) / 2; h = max(min_half, 0.55 * max(hi - lo) + 1.0)
     p.setXRange(cx - h, cx + h, padding=0); p.setYRange(cy - h, cy + h, padding=0)
+
+
+class CompassDial(QtWidgets.QWidget):
+    """A compass rose (north up) with an arrow where the phone's top points; grey when there is no heading."""
+
+    def __init__(self):
+        super().__init__(); self.setFixedSize(96, 96); self.heading = None; self.bad = False
+
+    def set_heading(self, deg, bad=False):
+        if (deg, bad) != (self.heading, self.bad):
+            self.heading, self.bad = deg, bad; self.update()
+
+    def paintEvent(self, _):
+        p = QtGui.QPainter(self); p.setRenderHint(QtGui.QPainter.Antialiasing)
+        c = QtCore.QPointF(48, 48); r = 40
+        p.setPen(QtGui.QPen(QtGui.QColor("#9aa3ad"), 1.5)); p.setBrush(QtGui.QColor("#fafbfc")); p.drawEllipse(c, r, r)
+        f = p.font(); f.setPointSize(8); f.setBold(True); p.setFont(f)
+        for lab, a in (("N", 0), ("E", 90), ("S", 180), ("W", 270)):
+            x = 48 + 31 * np.sin(np.radians(a)); y = 48 - 31 * np.cos(np.radians(a))
+            p.setPen(QtGui.QColor("#b3263a" if lab == "N" else "#5a6672"))
+            p.drawText(QtCore.QRectF(x - 8, y - 8, 16, 16), QtCore.Qt.AlignCenter, lab)
+        if self.heading is None: return
+        a = np.radians(self.heading); d = QtCore.QPointF(np.sin(a), -np.cos(a)); n = QtCore.QPointF(-d.y(), d.x())
+        tip, tail = c + d * 22, c - d * 12
+        col = QtGui.QColor("#b3263a" if self.bad else PATH_COLOR)
+        p.setPen(QtCore.Qt.NoPen); p.setBrush(col)
+        p.drawPolygon(QtGui.QPolygonF([tip, tail + n * 6, c - d * 6, tail - n * 6]))
 
 
 # ---------------------------------------------------------------- background processing
@@ -250,13 +278,25 @@ class Player(QtWidgets.QMainWindow):
         dl.addSpacing(10)
         for x in (self.lv_link, self.lv_addr): dl.addWidget(x)
         dl.addSpacing(10); dl.addWidget(self.lv_stats); dl.addSpacing(10)
+        # compass: dial + status line
+        crow = QtWidgets.QHBoxLayout(); self.lv_dial = CompassDial(); crow.addWidget(self.lv_dial)
+        self.lv_compass = QtWidgets.QLabel(); self.lv_compass.setWordWrap(True); crow.addWidget(self.lv_compass, 1)
+        dl.addLayout(crow); dl.addSpacing(6)
         grid = QtWidgets.QGridLayout()
-        buttons = [("Recalibrate", "R", "The walker stands still: calibrate again and start a new path", lambda: self.live_run.tracker.reset()),
+        buttons = [("New path", "R", "The walker stands still: calibrate again and start a new path (the old one is cleared)",
+                    lambda: self.live_run.tracker.reset()),
+                   ("Recalibrate, keep path", "K", "The walker stands still: calibrate again and carry on with the same "
+                    "path. Heading from the compass if it is calibrated, else face the way you faced at the start",
+                    lambda: self.live_run.tracker.recalibrate_keep()),
                    ("Reset origin", "C", "Keep tracking, but make the current position the start", lambda: self.live_run.tracker.clear()),
+                   (None, None, "Turn the phone over and around in a figure-8 until the compass says calibrated "
+                    "(before strapping the phone on, away from metal). The path starts again afterwards", self._live_compass_cal),
                    ("Next labelled walk", "N", "Data collection: a new file for the next protocol walk", self._live_next_walk),
                    ("Marker", "M", "Data collection: note the time of something worth knowing later", lambda: self.live_run.session.marker())]
         for i, (text, key, tip, fn) in enumerate(buttons):
-            b = QtWidgets.QPushButton(f"{text}   ({key})"); b.setShortcut(key); b.setToolTip(tip); b.clicked.connect(fn)
+            b = QtWidgets.QPushButton(f"{text}   ({key})" if key else "Calibrate compass"); b.setToolTip(tip); b.clicked.connect(fn)
+            if key: b.setShortcut(key)
+            else: self.lv_cal_btn = b
             grid.addWidget(b, i // 2, i % 2)
         dl.addLayout(grid)
         stop = QtWidgets.QPushButton("Stop live"); stop.clicked.connect(self.go_home); stop.setStyleSheet("font-weight:600")
@@ -653,8 +693,16 @@ class Player(QtWidgets.QMainWindow):
                     it.setData(t[::2], a[::2, col]); p.setXRange(-livemode.STRIP_S, 0, padding=0)
         if tracking:
             self.lv_state.setText("TRACKING"); self.lv_state.setStyleSheet("font-size:20px; font-weight:600; color:#1b7a3a")
-            self.lv_help.setText("Go. The path turns to point up after 3 m. Press R to start over, C to make the current "
-                                 "position the start.")
+            done = (f" Recalibrated {s['recalibrations']}x, heading from the {s['last_recal']}." if s["recalibrations"] else "")
+            self.lv_help.setText("Go. The path turns to point up after 3 m. If it starts to drift, stand still and press K "
+                                 "(recalibrate, keep path). R starts a new path, C makes this position the start." + done)
+        elif s["state"] == RECALIBRATING:
+            self.lv_state.setText("RECALIBRATING"); self.lv_state.setStyleSheet("font-size:20px; font-weight:600; color:#b26a00")
+            m = s["motion"]; gl = s["still_limits"][0]
+            how = "" if m is None else f" Shoe motion {m[0]:.3f} rad/s (needs below {gl:.2f} for 2 s)."
+            src = ("the compass" if s["compass"]["state"] == COMPASS_OK
+                   else "the way you faced at the start: face that way now")
+            self.lv_help.setText(f"Stand still. The path is kept; the heading comes from {src}.{how}")
         else:
             gl, al = s["still_limits"]; m = s["motion"]
             if m is None:
@@ -677,9 +725,42 @@ class Player(QtWidgets.QMainWindow):
         self.lv_addr.setText(f"In IMU Stream, enter {self.live_run.ip} (port {self.live_run.port}), choose Fastest, press Start."
                              + (" The path is sent back to the phone, which draws it too." if age is not None and age < 1.0 else ""))
         self.lv_stats.setText(f"Steps     {s['steps']}\nDistance  {s['distance']:.1f} m\nSpeed     {s['walk_speed']:.2f} m/s")
+        self._show_compass(s["compass"], s["compass_cal"])
         code = self.live_run.session.walk[0]
         self.lv_rec.setText(f"Recording to Documents/IMU Live/{s['file']}  ({s['rows']} rows"
                             + (f", walk {code}" if code != "free" else "") + f", {self.live_run.session.markers} markers)")
+
+    def _show_compass(self, c, cal):
+        st = c["state"]; green, orange, red = "#1b7a3a", "#b26a00", "#b3263a"
+        self.lv_cal_btn.setText("Cancel compass calibration" if st == COMPASS_CALIBRATING else "Calibrate compass")
+        self.lv_dial.set_heading(c["heading"] if st in (COMPASS_OK, COMPASS_DISTURBED) else None, st == COMPASS_DISTURBED)
+        if st == COMPASS_NONE:
+            text, col = "Compass: no readings yet (IMU Stream 1.3 or later sends them).", "#5a6672"
+        elif st == COMPASS_CALIBRATING:
+            p = c["progress"] or {}
+            text, col = f"<b>CALIBRATING COMPASS</b><br>{p.get('message', '')}", orange
+        elif cal is None:
+            text, col = "Compass not calibrated: click <b>Calibrate compass</b>.", orange
+        else:
+            p = c["progress"]
+            head = (f"<b>CALIBRATED</b> just now: field {cal.field:.0f} µT, fit spread {100 * cal.spread:.1f} %"
+                    if p and p.get("done") else f"Calibrated {cal.when}, field {cal.field:.0f} µT")
+            if c["heading"] is None:
+                text, col = f"{head}<br>Compass heading: waiting for a still moment", green
+            else:
+                h = f"Compass <b>{c['heading']:.0f}°</b> (phone {c['axis']})"
+                if c["filter_heading"] is not None:
+                    h += f", filter {c['filter_heading']:.0f}°"
+                if st == COMPASS_DISTURBED:
+                    text, col = f"{head}<br>{h}<br><b>DISTURBED</b> ({c['field']:.0f} µT): heading not corrected here", red
+                else:
+                    text, col = f"{head}<br>{h}", green
+        self.lv_compass.setText(text); self.lv_compass.setStyleSheet(f"color:{col}")
+
+    def _live_compass_cal(self):
+        tr = self.live_run.tracker
+        if tr.status()["compass"]["state"] == COMPASS_CALIBRATING: tr.cancel_compass_calibration()
+        else: tr.calibrate_compass()
 
     def _live_next_walk(self):
         self.live_run.session.next_walk()

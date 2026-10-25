@@ -8,7 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from imunav.live.align import StreamAligner  # noqa: E402
-from imunav.live.protocol import ACC, GYRO, encode, decode  # noqa: E402
+from imunav.live.protocol import ACC, GYRO, MAG, encode, decode  # noqa: E402
+from imunav.live.recording import load_recording  # noqa: E402
 from imunav.live.receiver import Receiver  # noqa: E402
 from imunav.live.tracker import TRACKING, LiveTracker  # noqa: E402
 from imunav.pipeline import PRESETS  # noqa: E402
@@ -83,6 +84,8 @@ def test_udp_receiver_end_to_end(tmp_path):
     for k in range(len(seq.t)):
         t_ns = 10**12 + int(seq.t[k] * 1e9)
         recs += [(ACC, t_ns, *seq.acc[k]), (GYRO, t_ns + 700_000, *seq.gyro[k])]
+        if k % 8 == 0:
+            recs.append((MAG, t_ns + 300_000, 20.0, -5.0, -40.0))     # 50 Hz magnetometer
     for i, j in enumerate(range(0, len(recs), 20)):
         if i == 5:
             continue  # one lost packet
@@ -97,7 +100,10 @@ def test_udp_receiver_end_to_end(tmp_path):
     assert rx.lost == 1
     s = tr.snapshot()
     assert s["state"] == TRACKING and s["distance"] > 2.0
-    assert rec.read_text().splitlines()[0] == "t,gx,gy,gz,ax,ay,az,gap"
+    assert rec.read_text().splitlines()[0] == "t,gx,gy,gz,ax,ay,az,gap,mx,my,mz"
+    df, info = load_recording(str(rec))
+    assert info["has_mag"] and np.allclose(df[["mx", "my", "mz"]].dropna().iloc[-1], [20.0, -5.0, -40.0])
+    assert s["compass"]["state"] == 1                   # readings arrive, but no calibration yet
 
 
 def test_aligner_does_not_interpolate_across_a_hole():

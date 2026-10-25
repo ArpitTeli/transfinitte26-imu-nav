@@ -8,7 +8,7 @@ Noise defaults follow the EuRoC ADIS16448 values.
 import numpy as np
 
 from .io import Sequence
-from .quat import R_to_quat
+from .quat import R_to_quat, quat_to_R
 
 G = 9.80665
 NOISE = dict(gyro_bias=(0.002, -0.0015, 0.001), acc_bias=(0.03, -0.02, 0.04),
@@ -56,6 +56,23 @@ def _imu_from_motion(t, vel, R, fs, seed, name, gyro_bias, acc_bias, gyro_scale,
     gt_q = np.array([R_to_quat(Rk) for Rk in R])
     return Sequence(name, t, gyro, acc, pos, gt_q, vel,
                     {"true_gyro_bias": np.array(gyro_bias), "true_acc_bias": np.array(acc_bias)})
+
+
+EARTH_FIELD = (39.0, 0.0, -22.0)   # uT, world frame (z up): 45 uT, dipping 30 deg, like India; north along +x
+
+
+def magnetometer(seq, field=EARTH_FIELD, north=0.0, offset=(18.0, -31.0, 9.0), scale=(1.04, 0.97, 1.0), noise=0.3,
+                 seed=0):
+    """Raw phone magnetometer readings (uT) for a sequence's true attitude: the earth's field (turned so north
+    lies `north` rad anticlockwise from x) seen in the body frame, through a hard-iron offset, per-axis gains
+    and noise: raw = m_body / scale + offset + noise."""
+    c, s = np.cos(north), np.sin(north)
+    f = np.array(field, float)
+    f_w = np.array([c * f[0] - s * f[1], s * f[0] + c * f[1], f[2]])
+    R = np.array([quat_to_R(q) for q in seq.gt_q])
+    m = np.einsum("nji,j->ni", R, f_w)
+    rng = np.random.default_rng(seed)
+    return m / np.array(scale) + np.array(offset) + rng.normal(0, noise, m.shape)
 
 
 def make_walk(fs=200.0, leg_len=12.0, legs=4, v_peak=1.6, stop_s=3.0, turn_s=1.2, lead_s=4.0, tail_s=4.0,

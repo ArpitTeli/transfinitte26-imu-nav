@@ -48,15 +48,7 @@ You need a Windows laptop and an Android phone (accelerometer and gyroscope; mos
    - Campus and office Wi-Fi often block phone-to-laptop traffic; a hotspot always works.
 2. The first time Fusion Player listens for the phone, Windows asks about the firewall. Allow **Private networks**.
 
-### 3. Strap the phone to the shoe
-
-- Strap it **tight on the shoe**, not the ankle: on top over the laces (easiest), or on the outer side below the ankle
-  bone. Use a running armband, a velcro strap or strong tape.
-- It must not wobble or touch the leg. The filter relies on the moment in every step when the shoe is flat and still;
-  the ankle never stops moving.
-- Any orientation works, as long as it stays the same during a walk.
-
-### 4. Start live tracking
+### 3. Start live tracking
 
 1. On the laptop, open **Fusion Player** and click **Live from the phone**. The side panel shows the laptop's address.
 2. On the phone, open **IMU Stream**:
@@ -68,28 +60,56 @@ You need a Windows laptop and an Android phone (accelerometer and gyroscope; mos
 4. Keep IMU Stream open on screen while walking: Wi-Fi stays fastest with the screen on.
 
 The laptop sends the path back, and the phone draws it under its controls: the same graph as the laptop's, with
-**CALIBRATING** or **TRACKING**, steps, distance and speed. The flow is phone sensors → laptop (filter and graph) →
-path back to the phone → phone graph. It needs no extra setting. If the laptop stops, the phone shows
+**CALIBRATING** or **TRACKING**, steps, distance, speed and the compass. The flow is phone sensors → laptop (filter
+and graph) → path back to the phone → phone graph. It needs no extra setting. If the laptop stops, the phone shows
 **NO PATH FROM LAPTOP** and keeps recording.
 
-### 5. Calibrate, then walk
+### 4. Calibrate the compass (phone in your hand)
+
+The compass stops the path from slowly turning on long walks: at every step it pulls the heading back towards north.
+Walk on **open ground**: steel (roofs, rebar, poles, cars) bends the field and makes the compass wrong.
+
+1. Click **Calibrate compass** in Fusion Player. The path starts again afterwards.
+2. Hold the phone away from metal and turn it **over and around in a figure-8**, slowly, for 15–30 s, so it points
+   every way (screen up, screen down, on its edges).
+3. The panel counts the directions covered. When it shows **CALIBRATED** (in green) with the field strength, stop.
+4. The calibration is saved and used every time after, so do it again only for a different phone, or if the compass
+   ever shows **DISTURBED** where nothing magnetic is near.
+
+### 5. Strap the phone to the shoe
+
+- Strap it **tight on the shoe**, not the ankle: on top over the laces (easiest), or on the outer side below the ankle
+  bone. Use a running armband, a velcro strap or strong tape.
+- It must not wobble or touch the leg. The filter relies on the moment in every step when the shoe is flat and still;
+  the ankle never stops moving.
+- Any orientation works, as long as it stays the same during a walk. With the top of the phone towards the toes, the
+  compass heading is the way you walk.
+
+### 6. Calibrate, then walk
 
 1. The walker stands **still**, with the phone on the shoe.
-2. Press **R** on the laptop (Recalibrate). The panel shows **CALIBRATING** and the shoe's motion.
+2. After a compass calibration this starts by itself; otherwise press **R** (New path). The panel shows
+   **CALIBRATING** and the shoe's motion.
 3. Once the shoe has stayed below the limit (0.02 rad/s) for 2 s, the panel turns green: **TRACKING**. Walk.
 4. The path starts at a dot. Once 3 m have been walked, it turns so that direction points up the screen. The dot is
-   orange while the foot swings and green when it is flat.
+   orange while the foot swings and green when it is flat. The compass dial shows where the top of the phone points.
+
+**If the path starts to go wrong on a long walk:** stand still and press **K** (Recalibrate, keep path). The panel
+shows **RECALIBRATING**; after 2 s still the filter starts afresh from where you stand, and the path carries on.
+The heading comes from the compass. Without a calibrated compass, face the way you faced at the start when you
+press K.
 
 | Key | Does |
 |---|---|
-| **R** | Recalibrate: the walker stands still, and a new path starts. |
+| **K** | Recalibrate, keep the path: stand still 2 s; the walk carries on from here, heading from the compass. |
+| **R** | New path: the walker stands still, and a new path starts (the old one is cleared). |
 | **C** | Keep tracking, but make the current position the start. |
 | **N**, **M** | Data collection only: start the next labelled walk, or timestamp an event (see the guide). |
 
-### 6. Stop
+### 7. Stop
 
 - Press **Stop** in IMU Stream, then **Stop live** in Fusion Player.
-- Both sides keep a recording:
+- Both sides keep a recording, compass readings included:
   - the phone's own complete copy is in `Download/IMU Stream`;
   - the laptop's copy is in `Documents\IMU Live`.
 

@@ -33,6 +33,8 @@ class PathView(context: Context) : View(context) {
     private val text = Paint().apply { textSize = 15 * dp; color = Color.rgb(31, 35, 40); typeface = Typeface.MONOSPACE; isAntiAlias = true }
     private val note = Paint().apply { textSize = 13 * dp; color = Color.rgb(90, 102, 114); isAntiAlias = true }
     private val path = Path()
+    private val arrow = Path()
+    private val dial = Paint().apply { textSize = 11 * dp; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
 
     /** set by the screen: whether the service is streaming to a laptop at all */
     var streaming = false
@@ -59,7 +61,7 @@ class PathView(context: Context) : View(context) {
         }
         val half = max(3f, 0.55f * max(hix - lox, hiy - loy) + 1f)
         val cx = (lox + hix) / 2; val cy = (loy + hiy) / 2
-        val top = 64 * dp                                  // room for the text above the plot
+        val top = 92 * dp                                  // room for the text and the compass above the plot
         val ph = h - top - pad
         val scale = min(w - 2 * pad, ph) / (2 * half)      // px per metre
         val ox = w / 2; val oy = top + ph / 2
@@ -94,24 +96,68 @@ class PathView(context: Context) : View(context) {
         dot.color = Color.parseColor(if (!tracking) "#9aa3ad" else if (s.footFlat) "#2e9e4f" else "#e8a33d")
         c.drawCircle(px(s.x), py(s.y), 8 * dp, dot); c.drawCircle(px(s.x), py(s.y), 8 * dp, ring)
 
-        // status above the plot
+        // status above the plot: state, numbers, compass (and its dial on the right)
+        c.drawRect(0f, 0f, w, top, bg)
+        c.drawLine(0f, top, w, top, frame)
         val y1 = pad + big.textSize * 0.8f
-        val y2 = y1 + text.textSize * 1.4f
+        val y2 = y1 + text.textSize * 1.45f
+        val y3 = y2 + text.textSize * 1.45f
+        val recal = s.state == LivePath.RECALIBRATING
         when {
             s.ageMs > 2000 -> {
                 big.color = Color.rgb(179, 38, 58)
                 c.drawText("NO PATH FROM LAPTOP (%.0f s)".format(Locale.US, s.ageMs / 1000.0), pad, y1, big)
             }
             tracking -> { big.color = Color.rgb(27, 122, 58); c.drawText("TRACKING", pad, y1, big) }
+            recal -> { big.color = Color.rgb(178, 106, 0); c.drawText("RECALIBRATING", pad, y1, big) }
             else -> { big.color = Color.rgb(178, 106, 0); c.drawText("CALIBRATING", pad, y1, big) }
         }
         val line2 = if (tracking || s.ageMs > 2000)
             "%d step%s   %.1f m   %.2f m/s".format(Locale.US, s.steps, if (s.steps == 1L) "" else "s", s.distance, s.speed)
+        else if (recal) "Stand still: the path is kept"
         else if (s.motion >= 0) "Stand still: shoe motion %.3f rad/s".format(Locale.US, s.motion)
         else "Stand still with the phone on the shoe"
         c.drawText(line2, pad, y2, text)
+        val heading = s.compass.isFinite() && (s.compassState == LivePath.COMPASS_OK || s.compassState == LivePath.COMPASS_DISTURBED)
+        val (line3, col3) = when (s.compassState) {
+            LivePath.COMPASS_OK -> (if (heading) "Compass %.0f°".format(Locale.US, s.compass) else "Compass ready") to Color.rgb(27, 122, 58)
+            LivePath.COMPASS_DISTURBED -> "Compass disturbed: %.0f°".format(Locale.US, s.compass) to Color.rgb(179, 38, 58)
+            LivePath.COMPASS_CALIBRATING -> "Calibrating compass: turn the phone over" to Color.rgb(178, 106, 0)
+            LivePath.COMPASS_UNCALIBRATED -> "Compass not calibrated (laptop button)" to Color.rgb(178, 106, 0)
+            else -> "Compass: no readings" to Color.rgb(90, 102, 114)
+        }
+        note.color = col3
+        c.drawText(line3, pad, y3, note)
+        note.color = Color.rgb(90, 102, 114)
+        drawDial(c, w - pad - 30 * dp, pad + 30 * dp, 30 * dp, if (heading) s.compass else null,
+                 s.compassState == LivePath.COMPASS_DISTURBED)
         val label = "grid ${if (step < 1) "0.5" else step.toInt().toString()} m"
-        c.drawText(label, w - pad - note.measureText(label), y2, note)
+        c.drawText(label, pad, h - pad, note)
+    }
+
+    /** a compass rose, north up, with an arrow where the phone's top points (degrees clockwise from north) */
+    private fun drawDial(c: Canvas, x: Float, y: Float, r: Float, deg: Float?, bad: Boolean) {
+        dot.color = Color.WHITE
+        c.drawCircle(x, y, r, dot)
+        c.drawCircle(x, y, r, frame)
+        val small = 10 * dp
+        for ((lab, a) in listOf("N" to 0.0, "E" to 90.0, "S" to 180.0, "W" to 270.0)) {
+            dial.color = if (lab == "N") Color.rgb(179, 38, 58) else Color.rgb(90, 102, 114)
+            val tx = x + (r - small) * Math.sin(Math.toRadians(a)).toFloat()
+            val ty = y - (r - small) * Math.cos(Math.toRadians(a)).toFloat()
+            c.drawText(lab, tx - dial.measureText(lab) / 2, ty + dial.textSize * 0.35f, dial)
+        }
+        if (deg == null) return
+        val a = Math.toRadians(deg.toDouble())
+        val dx = Math.sin(a).toFloat(); val dy = -Math.cos(a).toFloat()
+        arrow.reset()
+        arrow.moveTo(x + dx * r * 0.62f, y + dy * r * 0.62f)
+        arrow.lineTo(x - dx * r * 0.3f - dy * r * 0.17f, y - dy * r * 0.3f + dx * r * 0.17f)
+        arrow.lineTo(x - dx * r * 0.12f, y - dy * r * 0.12f)
+        arrow.lineTo(x - dx * r * 0.3f + dy * r * 0.17f, y - dy * r * 0.3f - dx * r * 0.17f)
+        arrow.close()
+        dot.color = if (bad) Color.rgb(179, 38, 58) else Color.parseColor("#2f6fb0")
+        c.drawPath(arrow, dot)
     }
 
     private fun drawWrapped(c: Canvas, msg: String, x: Float, y0: Float, width: Float, p: Paint) {

@@ -204,7 +204,7 @@ The walking routine is exactly the same. In addition:
    3. The walker finishes the 5 s and sets off.
    4. While it calibrates, the panel shows the **shoe motion**. It must stay below 0.02 rad/s for 2 s.
       - If it stays above that while the walker stands still, the phone isn't tight on the shoe: re-strap it.
-      - If TRACKING still doesn't appear, press **R**, and they stand still for another 5 s.
+      - If TRACKING still doesn't appear, press **R** (New path), and they stand still for another 5 s.
 5. **While they walk, watch:**
    - **LINK OK** (green) at about 250 Hz (the phone's rate).
    - The path, which starts at a dot and turns to point up the screen after 3 m. The phone draws the same path
