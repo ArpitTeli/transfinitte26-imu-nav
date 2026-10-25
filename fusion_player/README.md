@@ -1,10 +1,13 @@
 # Fusion Player
 
-Watch IMU navigation unfold, from recorded data or live from the phone on the shoe. The start page offers two ways in:
+Watch IMU navigation unfold, from recorded data or live from the phone on the shoe. The start page offers three ways in:
 
 - **Recorded data:** a phone walk recording (`.csv`) through the foot filter, or an NCLT robot dataset through the
   IMU + wheel-encoder + magnetometer filter. Each is computed once, then played back at its own pace (1×) or faster.
 - **Live from the phone:** the IMU Stream app's Wi-Fi stream through the foot filter, as the walker moves.
+- **Demo:** a sample recording that ships with the app (`demo/court_walk_5_laps.csv`: five laps of a 13.4 × 6.1 m
+  badminton court, phone on the shoe), processed and played back like any recorded walk. The first time takes about
+  20 s; after that it opens from the cache.
 
 ## Run
 
@@ -21,7 +24,8 @@ Shortcuts: `python app.py walk.csv` opens a walk, `python app.py sen.tar.gz grou
      session (`Documents/IMU Live/….csv`). The walk must start with the shoe still for 2 s. A 45-minute recording takes a few
      minutes the first time.
    - **NCLT robot dataset:** the sensor archive `<date>_sen.tar.gz` and `groundtruth_<date>.csv`, exactly as downloaded,
-     plus the filter settings profile and how the estimate is aligned to ground truth. The first run takes 10–30 s.
+     and how the estimate is aligned to ground truth. The filter always uses the settings tuned on all 4 NCLT sessions
+     (`settings/tuned_4_sessions.json`). The first run takes 10–30 s.
 2. Results are cached in `cache/`; **Recent** reopens them instantly.
 3. **Play** (Space). **Speed** sets the playback rate: 1× is real time, up to 600×. Drag the slider to jump anywhere.
 

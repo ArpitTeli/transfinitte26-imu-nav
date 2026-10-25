@@ -1,6 +1,5 @@
 {
  "name": "Tuned on 4 NCLT sessions",
- "default": true,
  "args": "enc_v=1 mag=1 zupt=1 zupt_v=0.03 vscale=0.95 r_mag=5.0 mag_ref_s=300 mag_tol=0.15 dip_tol=0.03 step_tol=0.3 gate=15 recover=1 r_enc_v=0.06 sig_bg=3e-05 beta=0.005 enc_w=0 r_enc_w=0.05 zupt_w=0.005 zupt_s=8.4 zb_min=1",
  "conditions": [
   {

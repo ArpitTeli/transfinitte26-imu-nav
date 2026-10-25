@@ -12,6 +12,7 @@ import numpy as np, pandas as pd
 FROZEN = getattr(sys, "frozen", False)                       # running as the installed Fusion Player.exe
 HERE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))   # filter/ and settings/ live here
 REPLAY = os.path.join(HERE, "filter", "replay.exe")
+SETTINGS = os.path.join(HERE, "settings", "tuned_4_sessions.json")   # filter settings tuned on all 4 NCLT sessions
 # the installed app may sit where it cannot write, so its cache goes to the user's local app data
 CACHE = (os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Fusion Player", "cache") if FROZEN
          else os.path.join(HERE, "cache"))
@@ -123,17 +124,6 @@ def start_pose_map(E0, psi0, Gp0, h0, mirror):
 
 
 # ---------------------------------------------------------------- the whole pipeline
-def settings_list():
-    """settings profiles, the one marked "default": true first"""
-    d = os.path.join(HERE, "settings")
-    files = [os.path.join(d, f) for f in sorted(os.listdir(d)) if f.endswith(".json")]
-
-    def is_default(f):
-        with open(f) as fh:
-            return json.load(fh).get("default", False)
-    return sorted(files, key=lambda f: not is_default(f))
-
-
 def cache_key(tar_path, gt_path, settings, align):
     h = hashlib.sha1()
     for p in (tar_path, gt_path):
@@ -143,7 +133,7 @@ def cache_key(tar_path, gt_path, settings, align):
     return h.hexdigest()[:16]
 
 
-def process(tar_path, gt_path, settings_path, align="fit60", cb=None, use_cache=True):
+def process(tar_path, gt_path, settings_path=SETTINGS, align="fit60", cb=None, use_cache=True):
     """align: 'fit60' = rigid fit on the first 60 s of motion; 'start' = true pose when motion starts"""
     os.makedirs(CACHE, exist_ok=True)
     with open(settings_path) as f:
@@ -225,7 +215,7 @@ def load(cf):
 
 if __name__ == "__main__":       # command-line check: python engine.py sen.tar.gz groundtruth.csv [settings.json]
     import sys
-    s = sys.argv[3] if len(sys.argv) > 3 else settings_list()[0]
+    s = sys.argv[3] if len(sys.argv) > 3 else SETTINGS
     d = process(sys.argv[1], sys.argv[2], s, cb=print, use_cache=False)
     m = d["meta"]
     print(f"{m['name']}: {m['distance']/1000:.2f} km, {m['duration']/60:.1f} min, {len(d['t'])} timeline samples")

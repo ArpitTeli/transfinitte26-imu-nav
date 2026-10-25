@@ -42,7 +42,8 @@ def main():
         "--name", "Fusion Player", "--icon", str(ICON),
         "--paths", str(ROOT), "--paths", str(IMU_LIVE),            # app modules + imunav (the foot filter)
         "--add-data", f"{ROOT / 'filter' / 'replay.exe'};filter",   # the robot filter, built from fusion.c
-        "--add-data", f"{ROOT / 'settings'};settings",              # its settings profiles
+        "--add-data", f"{ROOT / 'settings'};settings",              # its filter settings
+        "--add-data", f"{ROOT / 'demo'};demo",                      # the sample walk behind the Demo button
         # not used by the app; keeps the bundle small
         "--exclude-module", "matplotlib", "--exclude-module", "scipy", "--exclude-module", "tkinter",
         "--exclude-module", "PyQt5", "--exclude-module", "PyQt6", "--exclude-module", "IPython",

@@ -21,6 +21,12 @@ ESP32. It is tested on the public NCLT robot dataset, which Fusion Player can pl
 | [`robot_filter/`](robot_filter/) | The **wheeled-robot filter** (`fusion.c`, portable C) with its tools: simulation, NCLT conversion, tuning, tier scoring, IMU calibration. |
 | [`firmware/`](firmware/) | **ESP32 firmware** that runs the robot filter on the board (PlatformIO). |
 
+## Quick look: the Demo button
+
+Install Fusion Player (step 1 below), open it and click **Demo** on the start page. It processes a sample recording
+that ships with the app (five laps of the badminton court, phone on the shoe; about 20 s the first time), then plays
+it back like any recorded walk. Press **Play**. No phone or files needed.
+
 ## Track a walk live, end to end
 
 You need a Windows laptop and an Android phone (accelerometer and gyroscope; most phones have both).
@@ -100,7 +106,8 @@ step-by-step protocol (start corner, pauses, laps) is in [`imu_live/docs/data_co
 1. Download a session from the [NCLT dataset](https://robots.engin.umich.edu/nclt/): its sensor archive
    (`<date>_sen.tar.gz`) and ground truth (`groundtruth_<date>.csv`). Use the files exactly as downloaded.
 2. In Fusion Player, choose **Recorded data**, then **NCLT robot dataset**, pick both files and press **Process**.
-3. Play. Four sensor combinations run side by side against the ground truth:
+3. Play. The filter uses the settings tuned on all four NCLT sessions we tested. Four sensor combinations run side by
+   side against the ground truth:
    - IMU only;
    - IMU + wheels;
    - IMU + wheels + stop detection;

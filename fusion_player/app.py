@@ -29,6 +29,7 @@ WINDOWS = [("Last 2 min", 2), ("Last 10 min", 10), ("Last 30 min", 30), ("Whole 
 MAX_TRAJ_PTS = 3000
 SERIES_BUCKETS = 1500                          # time series: min/max envelope over this many buckets
 LIVE_PORT = 5555
+DEMO = os.path.join(engine.HERE, "demo", "court_walk_5_laps.csv")   # walk A1 of the court walks (2026-10-25)
 
 
 def dec(a, i):
@@ -119,11 +120,6 @@ class OpenDialog(QtWidgets.QDialog):
         pn = QtWidgets.QWidget(); fn = QtWidgets.QFormLayout(pn)
         self.tar = self._file_row(fn, "Sensor archive", "NCLT sensor archive (*.tar.gz *.tgz *.tar *.gz);;All files (*)", "last_tar")
         self.gt = self._file_row(fn, "Ground truth", "Ground-truth CSV (*.csv);;All files (*)", "last_gt")
-        self.profile = QtWidgets.QComboBox()
-        for p in engine.settings_list():
-            with open(p) as fh:
-                self.profile.addItem(json.load(fh).get("name", os.path.basename(p)), p)
-        fn.addRow("Filter settings", self.profile)
         self.align = QtWidgets.QComboBox()
         self.align.addItem("Fit on the first 60 s of motion", "fit60"); self.align.addItem("True pose when motion starts", "start")
         fn.addRow("Align to ground truth", self.align)
@@ -160,11 +156,11 @@ class OpenDialog(QtWidgets.QDialog):
         """(function, args) that processes the chosen data"""
         if self.kind_walk.isChecked():
             return foot.process, (self.walk.text(),)
-        return engine.process, (self.tar.text(), self.gt.text(), self.profile.currentData(), self.align.currentData())
+        return engine.process, (self.tar.text(), self.gt.text(), engine.SETTINGS, self.align.currentData())
 
 
 class StartPage(QtWidgets.QWidget):
-    def __init__(self, on_recorded, on_live):
+    def __init__(self, on_recorded, on_live, on_demo):
         super().__init__()
         v = QtWidgets.QVBoxLayout(self); v.setContentsMargins(60, 40, 60, 40); v.addStretch(1)
         t = QtWidgets.QLabel("Fusion Player"); t.setStyleSheet("font-size:28px; font-weight:600"); v.addWidget(t, 0, QtCore.Qt.AlignHCenter)
@@ -175,12 +171,14 @@ class StartPage(QtWidgets.QWidget):
                 ("Recorded data", "Play back a phone walk (.csv from IMU Stream or a live session) or an NCLT robot dataset, "
                                   "at real time or faster.", on_recorded),
                 ("Live from the phone", "Stream from the IMU Stream app over Wi-Fi and draw the walker's path as they "
-                                        "move.", on_live)):
+                                        "move.", on_live),
+                ("Demo", "Play back a sample: five laps of a badminton court (13.4 × 6.1 m), walked with the phone on "
+                         "the shoe. No files or phone needed.", on_demo)):
             card = QtWidgets.QVBoxLayout()
-            b = QtWidgets.QPushButton(title); b.setMinimumSize(300, 110); b.clicked.connect(fn)
+            b = QtWidgets.QPushButton(title); b.setMinimumSize(260, 110); b.clicked.connect(fn)
             b.setStyleSheet("font-size:20px; font-weight:600")
-            d = QtWidgets.QLabel(text); d.setWordWrap(True); d.setFixedWidth(300); d.setStyleSheet("color:#5a6672")
-            card.addWidget(b); card.addWidget(d); card.addStretch(1); row.addLayout(card); row.addSpacing(32)
+            d = QtWidgets.QLabel(text); d.setWordWrap(True); d.setFixedWidth(260); d.setStyleSheet("color:#5a6672")
+            card.addWidget(b); card.addWidget(d); card.addStretch(1); row.addLayout(card); row.addSpacing(24)
         row.addStretch(1); v.addLayout(row); v.addStretch(2)
 
 
@@ -285,7 +283,7 @@ class Player(QtWidgets.QMainWindow):
     def go_home(self):
         self.stop_live(); self.pause(); self.d = None
         self.tabs.blockSignals(True); self.tabs.clear()
-        self.tabs.addTab(StartPage(self.open_dialog, self.start_live), "Start"); self.tabs.blockSignals(False)
+        self.tabs.addTab(StartPage(self.open_dialog, self.start_live, self.open_demo), "Start"); self.tabs.blockSignals(False)
         self.title.setText(""); self.transport.hide(); self.dock.hide()
 
     # ---------- opening recorded data
@@ -316,6 +314,10 @@ class Player(QtWidgets.QMainWindow):
         dlg = OpenDialog(self, self.store)
         if dlg.exec() != QtWidgets.QDialog.Accepted: return
         self.process(*dlg.job())
+
+    def open_demo(self):
+        """the sample walk shipped with the app, processed like any opened recording"""
+        self.process(foot.process, (DEMO,))
 
     def process(self, fn, args):
         self.pause()
@@ -706,6 +708,6 @@ if __name__ == "__main__":
         w.start_live()
     elif len(a) == 1:            # python app.py walk.csv  -> process a phone walk straight away
         w.process(foot.process, (a[0],))
-    elif len(a) >= 2:            # python app.py sen.tar.gz groundtruth.csv  -> NCLT with the first profile
-        w.process(engine.process, (a[0], a[1], engine.settings_list()[0]))
+    elif len(a) >= 2:            # python app.py sen.tar.gz groundtruth.csv  -> an NCLT dataset
+        w.process(engine.process, (a[0], a[1]))
     sys.exit(app.exec())
