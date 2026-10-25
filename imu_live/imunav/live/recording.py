@@ -7,6 +7,8 @@ Three formats are accepted:
   * phone recording:        '#' header lines, then type,t_ns,x,y,z  (raw events saved by IMU Stream itself;
                             nothing is lost to Wi-Fi). Aligned onto the same grid as the live path.
 """
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -60,13 +62,23 @@ def _from_phone(path, fs, max_gap):
 
 
 def load_recording(path, fs=400.0, max_gap=0.05):
-    """Returns (DataFrame with COLS + gap, info dict)."""
+    """Returns (DataFrame with COLS + gap, info dict). A file that is not a recording raises ValueError saying so."""
+    name = os.path.basename(path)
     with open(path) as f:
         first = f.readline()
+    if not first.strip():
+        raise ValueError(f"{name} is empty.")
     if first.startswith("#") or first.strip().startswith("type"):
-        df, fmt = _from_phone(path, fs, max_gap), "phone"
+        try:
+            df, fmt = _from_phone(path, fs, max_gap), "phone"
+        except (ValueError, IndexError, pd.errors.ParserError) as e:
+            raise ValueError(f"{name} starts like an IMU Stream recording but cannot be read ({e}).") from e
     else:
         df = pd.read_csv(path)
+        missing = [c for c in COLS if c not in df.columns]
+        if missing:
+            raise ValueError(f"{name} is not an IMU recording. It needs the columns {', '.join(COLS)} (IMU Live) or "
+                             f"type,t_ns,x,y,z (IMU Stream); its columns are {', '.join(map(str, df.columns[:8]))}.")
         if "gap" in df.columns:
             df, fmt = df[COLS + ["gap"]].copy(), "laptop"
         else:

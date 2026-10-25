@@ -59,6 +59,7 @@ def sim_job(a):
     return seed, name, float(err[m30].max()), float(err[-1]), float(100 * err[-1] / dist[-1]), float(err.max()), float(np.hypot(*(E[-1] - E[0]))), float(dist[-1])
 
 if __name__ == "__main__":
+    if len(sys.argv) < 2: sys.exit(__doc__)          # no arguments: show the usage, not a traceback
     tuned = json.load(open(sys.argv[1]))["args"]
     with ProcessPoolExecutor(12) as pool:
         R = list(pool.map(nclt_job, [(p, n, f"{tuned} {c}") for p in SESS for n, c in CFG]))

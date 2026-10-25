@@ -51,3 +51,19 @@ def test_phone_recording_is_aligned(tmp_path):
     assert list(df.columns) == COLS + ["gap"]
     assert info["n_gaps"] == 1 and info["gap_time"] == pytest.approx(0.5, abs=0.01)
     assert np.median(np.diff(df.t)) == pytest.approx(1 / 400, rel=1e-6)
+
+
+def test_files_that_are_not_recordings_say_so(tmp_path):
+    """the apps show this message in their error dialog, so it must name the problem, not a pandas internal"""
+    empty = tmp_path / "empty.csv"
+    empty.write_text("")
+    with pytest.raises(ValueError, match="is empty"):
+        load_recording(str(empty))
+    other = tmp_path / "groundtruth.csv"
+    other.write_text("utime,x,y,z\n1,2,3,4\n5,6,7,8\n")
+    with pytest.raises(ValueError, match="not an IMU recording"):
+        load_recording(str(other))
+    broken = tmp_path / "phone.csv"
+    broken.write_text("# IMU Stream recording v1\ntype,t_ns,x,y,z\n1,abc\n")
+    with pytest.raises(ValueError, match="cannot be read"):
+        load_recording(str(broken))

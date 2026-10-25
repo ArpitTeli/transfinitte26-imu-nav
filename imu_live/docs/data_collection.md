@@ -196,37 +196,33 @@ The walking routine is exactly the same. In addition:
 1. **Network:** turn on the walker's phone hotspot and connect the laptop to it.
    - Campus Wi-Fi often blocks phone-to-laptop traffic.
    - The first time, Windows asks about the firewall; allow **Private** networks.
-2. **Laptop:** in a terminal in the `imu_live` folder, run `python scripts/live.py`. It shows `Phone <address>:5555`.
+2. **Laptop:** open **Fusion Player** and click **Live from the phone**. The side panel shows the address to use.
 3. **Phone:** type that address into IMU Stream and choose Fastest.
 4. **Each walk:**
-   1. When the walker is on the start corner, **you press `n`**. The window shows the walk and its start corner.
-   2. **Then** the walker presses Start and stands still. The window shows CALIBRATING and then TRACKING.
+   1. When the walker is on the start corner, **press N** (Next labelled walk). The panel shows the walk's code.
+   2. **Then** the walker presses Start and stands still. The panel shows CALIBRATING and then TRACKING.
    3. The walker finishes the 5 s and sets off.
-   4. While it calibrates, the window shows the **shoe motion**. It must stay below 0.02 rad/s for 2 s.
+   4. While it calibrates, the panel shows the **shoe motion**. It must stay below 0.02 rad/s for 2 s.
       - If it stays above that while the walker stands still, the phone isn't tight on the shoe: re-strap it.
-      - If TRACKING still doesn't appear, press `r`, and they stand still for another 5 s.
+      - If TRACKING still doesn't appear, press **R**, and they stand still for another 5 s.
 5. **While they walk, watch:**
-   - **LINK OK** (green) at about 400 Hz.
-   - The track on the court outline. The start corner is always the **bottom left** of the drawn court:
-     - in clockwise walks the court stands upright, and the first leg goes up its left side;
-     - in anticlockwise walks the first leg goes along the bottom.
-     - The track lines up with the court once 3 m have been walked.
-   - The lap count.
-   - Press **`m`** to timestamp anything worth knowing, such as a trip, a missed pause or a re-mount.
-6. **At the end**, the walker stands still for 5 s and presses Stop. The laptop then shows **LINK LOST**, which is normal between walks.
-7. After the last walk, press **`q`**.
+   - **LINK OK** (green) at about 250 Hz (the phone's rate).
+   - The path, which starts at a dot and turns to point up the screen after 3 m.
+   - Press **M** to timestamp anything worth knowing, such as a trip, a missed pause or a re-mount.
+6. **At the end**, the walker stands still for 5 s and presses Stop. The panel then shows **LINK LOST**, which is normal between walks.
+7. After the last walk, click **Stop live**.
 
-If you forget `n` until after Start, press it while the walker is still standing, and have them stand for another 5 s.
+If you forget N until after Start, press it while the walker is still standing, and have them stand for another 5 s.
 
-If the laptop program has to restart partway through, `python scripts/live.py --start B1` continues from the walk you name.
+The labels start again at A1 each time live mode starts. If you have to restart partway through, write down which walk you were on.
 
-The laptop's copy is in `imu_live/results/live/`: one `<date_time>_<walk>.csv` per walk, plus `_markers.csv` for walks with markers.
+The laptop's copy is in `Documents\IMU Live`: one `<date_time>_<walk>.csv` per walk, plus `_markers.csv` for walks with markers.
 
 ## 10. After the session
 
 1. Copy the phone's `Download/IMU Stream` folder to the laptop, by USB ("File transfer" mode), Quick Share or Drive.
 2. Put the files in `Transfinitte26'\imu_live\recordings\<date>_court\`, together with the log sheet. A photo of the sheet or a typed `log.txt` is fine.
-3. For live-link sessions, leave `results/live` as it is.
+3. For live-link sessions, leave `Documents\IMU Live` as it is.
 4. Tell me the folder. I'll check each recording first (rate, gaps, the still periods, the corner pauses), then tune on A1, B1, C, D and E, and test on A2 and B2.
 
 ## 11. If something looks wrong

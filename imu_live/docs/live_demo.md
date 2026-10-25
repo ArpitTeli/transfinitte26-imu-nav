@@ -1,5 +1,9 @@
 # Live demo: phone on the shoe, path on the laptop
 
+> The laptop app is now **Fusion Player** (`fusion_player/`, installer `Fusion-Player-Setup-2.0.0.exe`), which
+> replaces IMU Live: its start page offers recorded data or **Live from the phone**, with the same receiver, filter and
+> recordings. See `fusion_player/README.md`. The IMU Live notes below still apply to `python scripts/live.py`.
+
 ```
 Android phone (strapped to shoe)  --UDP over Wi-Fi-->  laptop: scripts/live.py
   IMU Stream app                                        align -> EKF + ZUPT -> live plot

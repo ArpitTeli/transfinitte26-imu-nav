@@ -5,13 +5,16 @@ Inputs per dataset (exactly what the NCLT site gives you):
   * groundtruth_<date>.csv
 The same C filter as the firmware (filter/replay.exe) runs once per condition. Results are cached in cache/.
 """
-import os, io, json, hashlib, tarfile, subprocess, tempfile
+import os, io, sys, json, hashlib, tarfile, subprocess, tempfile
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np, pandas as pd
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+FROZEN = getattr(sys, "frozen", False)                       # running as the installed Fusion Player.exe
+HERE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))   # filter/ and settings/ live here
 REPLAY = os.path.join(HERE, "filter", "replay.exe")
-CACHE = os.path.join(HERE, "cache")
+# the installed app may sit where it cannot write, so its cache goes to the user's local app data
+CACHE = (os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "Fusion Player", "cache") if FROZEN
+         else os.path.join(HERE, "cache"))
 FS = 10.0                      # playback timeline rate (Hz)
 G = 9.81
 ENGINE_VERSION = 2             # bump when processing changes, so cached results are recomputed

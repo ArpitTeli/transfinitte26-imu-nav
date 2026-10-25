@@ -9,6 +9,7 @@ CFG = [("IMU only", "enc_v=0 enc_w=0 mag=0 zupt=0"), ("+ wheel speed", "enc_v=1 
 def job(a):
     pre, args = a; r = run(pre, args); return pre, args, r, stats(r)
 if __name__ == "__main__":
+    if len(sys.argv) < 3: sys.exit(__doc__)          # no arguments: show the usage, not a traceback
     tuned = json.load(open(sys.argv[1]))["args"]; sess = sys.argv[2:]
     jobs = [(pre, f"{tuned} {c}") for pre in sess for _, c in CFG]
     with ProcessPoolExecutor(8) as p: res = list(p.map(job, jobs))

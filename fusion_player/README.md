@@ -1,49 +1,60 @@
 # Fusion Player
 
-Replays an NCLT dataset through the IMU + wheel-encoder + magnetometer fusion filter and draws the result as it
-unfolds, at the robot's own pace (1×) or faster.
+Watch IMU navigation unfold, from recorded data or live from the phone on the shoe. The start page offers two ways in:
+
+- **Recorded data:** a phone walk recording (`.csv`) through the foot filter, or an NCLT robot dataset through the
+  IMU + wheel-encoder + magnetometer filter. Each is computed once, then played back at its own pace (1×) or faster.
+- **Live from the phone:** the IMU Stream app's Wi-Fi stream through the foot filter, as the walker moves.
 
 ## Run
 
     pip install -r requirements.txt
     run.bat            (or: python app.py)
 
-## Use
+Shortcuts: `python app.py walk.csv` opens a walk, `python app.py sen.tar.gz groundtruth.csv` an NCLT dataset, and
+`python app.py --live` goes straight to live mode.
 
-1. **Open dataset…** (Ctrl+O). Pick the two files exactly as downloaded from the NCLT site:
-   the sensor archive `<date>_sen.tar.gz` and `groundtruth_<date>.csv`. Choose the filter settings profile and how the
-   estimate is aligned to ground truth, then **Process**. The first run of a dataset takes 10–30 s; it is cached in
-   `cache/`, and **Recent** reopens it instantly.
-2. **Play** (Space). **Speed** sets the playback rate: 1× is real time, as the robot drove it; up to 600×.
-   Drag the slider to jump anywhere. **Restart** goes back to the start.
+## Recorded data
 
-## Graphs
+1. **Open recorded data…** (Ctrl+O) and pick the kind:
+   - **Phone walk recording:** the phone's own copy (`Download/IMU Stream/imu_….csv`) or IMU Live's
+     (`Documents/IMU Live/….csv`). The walk must start with the shoe still for 2 s. A 45-minute recording takes a few
+     minutes the first time.
+   - **NCLT robot dataset:** the sensor archive `<date>_sen.tar.gz` and `groundtruth_<date>.csv`, exactly as downloaded,
+     plus the filter settings profile and how the estimate is aligned to ground truth. The first run takes 10–30 s.
+2. Results are cached in `cache/`; **Recent** reopens them instantly.
+3. **Play** (Space). **Speed** sets the playback rate: 1× is real time, up to 600×. Drag the slider to jump anywhere.
 
-| Tab | What it shows |
-|---|---|
-| Trajectories | One map per condition. Ground truth (dark) and the estimate (colour) are drawn as they happen, with dots on the current positions. The whole ground-truth path is shown faintly for context (toggle in the side panel). **Trajectories follow the robot** zooms in and tracks it. The maps pan and zoom together. |
-| Position error | Error against time and against distance travelled, all conditions on one plot (log scale toggle). |
-| Heading | One plot per condition, each with the ground-truth heading, wrapped to ±180°. |
-| Speed | One plot per condition, each with the ground-truth speed. A condition that runs off the scale (IMU only) is pinned to the plot edge and its title says so. |
+| Tab | Phone walk | NCLT dataset |
+|---|---|---|
+| Path / Trajectories | The foot path from the start (first 3 m pointing up). The dot is green while the foot is flat, orange while it swings. | One map per condition, with ground truth drawn as it happens. |
+| Position error | (no ground truth for a free walk) | Error against time and against distance, all conditions. |
+| Heading, Speed | The filter's heading and walking speed. | Each condition against the ground truth. |
+| Sensors | Rotation rate, acceleration and foot-flat, last 30 s. | Gyro yaw rate, forward acceleration and wheel speeds, last 60 s. |
+| Summary | Distance, steps, start-up calibration, data gaps, filter settings. | RMSE, max and final error, self-calibration, settings, update counts. |
 
-Heading and speed scroll with playback; **Heading and speed time axis** in the side panel sets the window (last 2, 10
-or 30 min, or the whole run). Long runs are drawn as a min/max envelope, so spikes stay visible at any zoom.
-| Sensors (live) | Scrolling last 60 s of the gyro yaw rate, forward acceleration, and both wheel speeds with ground-truth speed. |
-| Summary | Whole-run RMSE, max and final error per condition, the self-calibration values, filter settings and update counts. |
+Court walks are scored against the court with `imu_live/scripts/court_eval.py`.
 
-The side panel shows the clock, distance travelled, and for each condition the error now, the RMSE so far and the
-worst error so far.
+## Live from the phone
 
-## Conditions
+1. Turn on the phone's hotspot and connect the laptop to it.
+2. Click **Live from the phone** (Ctrl+L). The side panel shows the address to type into IMU Stream (port 5555).
+3. In IMU Stream: that address, **Fastest**, **Start**. The panel shows **LINK OK** with the rate.
+4. Strap the phone to the shoe; the walker stands still. Press **R** to calibrate there. The panel shows the shoe's
+   motion against the limit; after 2 s still it switches from **CALIBRATING** to **TRACKING**: go.
 
-Defined in the settings profile (`settings/*.json`): IMU only, IMU + wheels, IMU + wheels + ZUPT, and the full filter
-(+ magnetometer). Add a profile by copying a JSON file and editing `args` (any `replay` option) or `conditions`.
+Keys: **R** recalibrate (new path), **C** make the current position the start, **N** next labelled walk and **M** marker
+(data collection). **Stop live** returns to the start page. Every live session is recorded to `Documents/IMU Live`,
+and the phone keeps its own complete copy.
 
 ## How it works
 
-`engine.py` reads `ms25.csv` and `wheels.csv` straight from the archive, converts them to the filter's input,
-self-calibrates from the sensor data only (still period, track width, magnetometer offset), runs `filter/replay.exe`
-once per condition, aligns each estimate to ground truth and resamples everything onto a 10 Hz timeline.
-`filter/replay.exe` is built from the same `fusion.c` as the ESP32 firmware:
+- `engine.py` (NCLT): reads `ms25.csv` and `wheels.csv` straight from the archive, self-calibrates from the sensor data
+  only (still period, track width, magnetometer offset), runs `filter/replay.exe` once per condition, aligns each
+  estimate to ground truth and resamples onto a 10 Hz timeline. `filter/replay.exe` is built from the same `fusion.c`
+  as the ESP32 firmware: `python -m ziglang cc -O2 -o filter/replay.exe filter/replay.c filter/fusion.c`
+- `foot.py` (phone walks): loads the recording with `imu_live`'s loader, calibrates on the first still 2 s, runs the
+  foot filter (`imunav`, shoe preset) and builds a 20 Hz timeline.
+- `livemode.py` (live): `imu_live`'s receiver, tracker and recording session, the same code as the IMU Live app.
 
-    python -m ziglang cc -O2 -o filter/replay.exe filter/replay.c filter/fusion.c
+The phone parts need the `imu_live` folder next to this one.

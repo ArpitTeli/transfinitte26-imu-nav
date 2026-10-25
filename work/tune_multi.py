@@ -22,6 +22,7 @@ def evaluate(pool, opts, sess):
         out.append({p: s for p, s in res[i * len(sess):(i + 1) * len(sess)]})
     return out
 if __name__ == "__main__":
+    if len(sys.argv) < 3: sys.exit(__doc__)          # no arguments: show the usage, not a traceback
     outf, tune = sys.argv[1], sys.argv[2].split(",")
     report = [a for a in sys.argv[3:] if not a.startswith("start=")] or tune
     for a in sys.argv[3:]:

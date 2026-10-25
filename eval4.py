@@ -9,6 +9,7 @@ def job(a):
     pre, name, args = a; r = run(pre, args); s = stats(r); s["log"] = r["log"]; s["km"] = r["dist"][-1] / 1000
     return pre, name, s
 if __name__ == "__main__":
+    if len(sys.argv) < 2: sys.exit(__doc__)          # no arguments: show the usage, not a traceback
     base = json.load(open(sys.argv[1]))["args"]
     sess = sys.argv[2:] or ["s0108", "s0204", "s0115", "s0122"]
     with ProcessPoolExecutor(14) as p:

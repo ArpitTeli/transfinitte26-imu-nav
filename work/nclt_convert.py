@@ -4,6 +4,7 @@ Writes <prefix>_run.csv, <prefix>_gt.csv (t,x,y,yaw) and <prefix>_params.txt
 MS25 frame is x fwd, z DOWN -> converted to body x fwd, y left, z up by negating y and z of accel/gyro/mag.
 """
 import sys, numpy as np
+if len(sys.argv) < 3: sys.exit(__doc__)              # no arguments: show the usage, not a traceback
 sen, gtf = sys.argv[1], sys.argv[2]
 pre = sys.argv[3] if len(sys.argv) > 3 else "nclt"
 ms = np.loadtxt(f"{sen}/ms25.csv", delimiter=",")

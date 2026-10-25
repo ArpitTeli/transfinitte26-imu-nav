@@ -72,13 +72,15 @@ class Config:
 
 
 # Shoe-mounted IMU: short stance phases (~0.3-0.5 s), so a short window and frequent updates.
-# First tuned on make_foot_walk seeds 1-3 (scripts/tune.py). Noise and stance settings retuned on the real court
-# walks A1, B1, C, D, E of 2026-10-25 (scripts/court_tune.py; A2 and B2 held out): a real foot is never
-# perfectly still at stance and the phone gyro is noisier than assumed, so the ZUPT is softer and the gyro noise
-# larger; ZARU is tighter. RMS error at the court corners 3.9 -> 0.7 m on those walks.
+# First tuned on make_foot_walk seeds 1-3 (scripts/tune.py), then on the real court walks of 2026-10-25
+# (scripts/court_tune.py). A real foot is never perfectly still at stance and the phone gyro is noisier than
+# assumed, so the ZUPT is softer and the gyro noise larger; ZARU is tighter. Tuned on A1, B1, C, D, E first: RMS
+# corner error 3.9 -> 0.7 m, held-out A2 1.26 -> 0.66 m and B2 2.79 -> 0.59 m, leave-one-walk-out 3.94 -> 0.81 m.
+# Retuning on all 7 walks then added: no gravity update (a foot rolling at stance makes the gravity reading wrong,
+# and the ZUPTs already hold the tilt) and stance updates every 0.01 s; 0.69 -> 0.62 m. No walk is held out now.
 PRESETS = {
-    "shoe": Config(mode="ins", zupt_win=0.08, zupt_gyro_thr=0.3, zupt_acc_var_thr=2.0, zupt_period=0.02,
-                   sigma_zupt=0.3, sigma_g=1.5e-3, sigma_zaru=1e-3,
+    "shoe": Config(mode="ins", zupt_win=0.08, zupt_gyro_thr=0.3, zupt_acc_var_thr=2.0, zupt_period=0.01,
+                   sigma_zupt=0.3, sigma_g=1.5e-3, sigma_zaru=1e-3, use_gravity=False,
                    # divergence recovery, chosen on the first real phone recording (20261024_035346);
                    # a foot never ramps gently, so this does not trigger in normal stance
                    zupt_override=0.3, v_diverged=0.5),

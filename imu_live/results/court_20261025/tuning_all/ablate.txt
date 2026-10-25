@@ -1,0 +1,13 @@
+start                                          obj  0.61 m | rms A1: 0.4 A2: 0.5 B1: 0.8 B2: 0.5 C: 0.4 D: 1.5 E: 0.8 | stretch med  0.6 % in3 100 % | head/leg  1.3 deg
+  back to preset use_gravity        (True): 0.683  (+11.9 %)
+  back to preset zupt_gyro_thr      (0.3): 0.612  (+0.2 %)
+  back to preset zupt_period        (0.02): 0.655  (+7.2 %)
+  back to preset sigma_a            (0.002): 0.614  (+0.4 %)
+  -> zupt_gyro_thr stays at the preset value
+  back to preset use_gravity        (True): 0.686  (+12.1 %)
+  back to preset zupt_period        (0.02): 0.659  (+7.7 %)
+  back to preset sigma_a            (0.002): 0.615  (+0.5 %)
+  -> sigma_a stays at the preset value
+  back to preset use_gravity        (True): 0.690  (+12.1 %)
+  back to preset zupt_period        (0.02): 0.661  (+7.4 %)
+minimal {"use_gravity": false, "zupt_period": 0.01} obj  0.62 m | rms A1: 0.4 A2: 0.5 B1: 0.8 B2: 0.5 C: 0.4 D: 1.5 E: 0.8 | stretch med  0.6 % in3 100 % | head/leg  1.3 deg

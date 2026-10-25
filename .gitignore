@@ -27,3 +27,4 @@ __pycache__/
 fusion_player/cache/
 imu_live/results/live/
 *.log
+fusion_player/build/

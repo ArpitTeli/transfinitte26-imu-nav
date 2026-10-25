@@ -1,0 +1,24 @@
+start {}                                       obj  0.69 m | rms A1: 0.4 A2: 0.7 B1: 1.0 B2: 0.6 C: 0.3 D: 1.6 E: 0.8 | stretch med  0.7 % in3  99 % | head/leg  1.3 deg
+  sweep 1 use_gravity        -> False     obj 0.661
+  sweep 1 sigma_grav         -> (preset)  obj 0.661
+  sweep 1 zupt_gyro_thr      -> 0.45      obj 0.656
+  sweep 1 zupt_acc_var_thr   -> (preset)  obj 0.656
+  sweep 1 zupt_win           -> (preset)  obj 0.656
+  sweep 1 sigma_zupt         -> (preset)  obj 0.656
+  sweep 1 zupt_period        -> 0.01      obj 0.614
+  sweep 1 sigma_g            -> (preset)  obj 0.614
+  sweep 1 sigma_a            -> 0.008     obj 0.611
+  sweep 1 zaru_gyro_thr      -> (preset)  obj 0.611
+  sweep 1 sigma_zaru         -> (preset)  obj 0.611
+  sweep 2 use_gravity        -> False     obj 0.611
+  sweep 2 sigma_grav         -> (preset)  obj 0.611
+  sweep 2 zupt_gyro_thr      -> 0.45      obj 0.611
+  sweep 2 zupt_acc_var_thr   -> (preset)  obj 0.611
+  sweep 2 zupt_win           -> (preset)  obj 0.611
+  sweep 2 sigma_zupt         -> (preset)  obj 0.611
+  sweep 2 zupt_period        -> 0.01      obj 0.611
+  sweep 2 sigma_g            -> (preset)  obj 0.611
+  sweep 2 sigma_a            -> 0.008     obj 0.611
+  sweep 2 zaru_gyro_thr      -> (preset)  obj 0.611
+  sweep 2 sigma_zaru         -> (preset)  obj 0.611
+best {"use_gravity": false, "zupt_gyro_thr": 0.45, "zupt_period": 0.01, "sigma_a": 0.008} obj  0.61 m | rms A1: 0.4 A2: 0.5 B1: 0.8 B2: 0.5 C: 0.4 D: 1.5 E: 0.8 | stretch med  0.6 % in3 100 % | head/leg  1.3 deg

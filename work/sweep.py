@@ -6,6 +6,7 @@ from multi import run, stats
 def job(a):
     pre, base, k, v = a; return pre, v, stats(run(pre, f"{base} {k}={v}"))
 if __name__ == "__main__":
+    if len(sys.argv) < 4: sys.exit(__doc__)          # no arguments: show the usage, not a traceback
     base = json.load(open(sys.argv[1]))["args"].replace("zupt_n=400", "zupt_s=8.4")
     k, vals = sys.argv[2], sys.argv[3].split(",")
     sess = ["s0108", "s0204"]; extra = []

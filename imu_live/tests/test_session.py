@@ -142,3 +142,23 @@ def test_calibration_feedback_shows_how_still_the_shoe_is():
     for k in range(800, 1700):                       # then strapped tight and standing still
         tr.add(k / 400, rng.normal(0, 0.001, 3), np.array([0, 0, 9.81]) + rng.normal(0, 0.01, 3))
     assert tr.snapshot()["state"] == TRACKING
+
+
+def test_phone_clock_going_back_restarts_tracking(tmp_path):
+    """A phone that reboots (or a second phone) starts its clock again. The receiver must notice, also after a pause,
+    or the filter would run with time going backwards."""
+    tr = LiveTracker(PRESETS["shoe"])
+    rx = Receiver(tr, port=0, fs=400.0)
+    port = rx.sock.getsockname()[1]
+    rx.start()
+    s = Session(rx, tr, tmp_path)
+    sent = _send(port, 1000.0, 3.0)
+    _wait_packets(rx, sent)
+    assert tr.snapshot()["state"] == TRACKING
+    time.sleep(0.3)                                  # the phone pauses: everything has been passed on
+    sent2 = _send(port, 5.0, 1.0)                    # its clock starts again near zero
+    _wait_packets(rx, sent + sent2)
+    snap = tr.snapshot()
+    rx.stop(); s.close()
+    assert snap["state"] != TRACKING                 # recalibrating on the new clock, not tracking backwards
+    assert rx.last_t is not None and rx.last_t < 10.0
